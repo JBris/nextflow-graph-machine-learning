@@ -10,6 +10,23 @@ services:
     volumes:
       - .:/nf
 
+  mlflow:
+    image: $GITHUB_CONTAINER_REPO
+    container_name: ${PROJECT_NAME}-mlflow
+    hostname: mlflow
+    restart: unless-stopped
+    stop_grace_period: 10s
+    env_file: .env
+    environment:
+      MLFLOW_BACKEND_STORE_URI: $MLFLOW_BACKEND_STORE_URI
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+      AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
+      AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
+    ports:
+      - ${MLFLOW_PORT}:5000
+    command: >
+      mlflow server   --serve-artifacts   --host 0.0.0.0  --port 5000   --backend-store-uri "${MLFLOW_BACKEND_STORE_URI}"   --default-artifact-root s3://mlflow/
+
   minio:
     image: minio/minio:${MINIO_TAG}
     container_name: ${PROJECT_NAME}-minio
