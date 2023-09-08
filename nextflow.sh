@@ -2,5 +2,5 @@
 
 . .env
 
-docker compose run nextflow cd nf && \
+docker compose run --rm nextflow cd nf && \
     nextflow "$@"

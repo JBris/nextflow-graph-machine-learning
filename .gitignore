@@ -168,3 +168,9 @@ work
 nf-training/results
 transcript-index
 results
+
+pipeline_dag.html
+pipeline_trace.txt
+report-*.html
+trace-*.txt
+out
