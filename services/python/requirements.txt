@@ -57,6 +57,7 @@ funcy==2.0
 gevent==22.10.2
 gitdb==4.0.10
 GitPython==3.1.31
+gpytorch==1.10
 grandalf==0.8
 greenlet==2.0.2
 gunicorn==20.1.0
@@ -67,11 +68,13 @@ idna==3.4
 importlib-metadata==6.8.0
 iterative-telemetry==0.0.8
 itsdangerous==2.1.2
+jaxtyping==0.2.21
 Jinja2==3.1.2
 jmespath==1.0.1
 joblib==1.2.0
 kiwisolver==1.4.5
 kombu==5.3.2
+linear-operator==0.5.2
 lit==16.0.6
 Mako==1.2.4
 Markdown==3.4.4
@@ -148,6 +151,7 @@ torchaudio==2.0.2
 torchvision==0.15.2
 tqdm==4.65.0
 triton==2.0.0
+typeguard==2.13.3
 typing_extensions==4.7.1
 tzdata==2023.3
 urllib3==1.26.15
