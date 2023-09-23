@@ -36,7 +36,8 @@ services:
     ports:
       - ${MLFLOW_PORT}:5000
     command: >
-      mlflow server   --serve-artifacts   --host 0.0.0.0  --port 5000   --backend-store-uri "${MLFLOW_BACKEND_STORE_URI}"   --default-artifact-root s3://mlflow/
+      mlflow server --serve-artifacts --host 0.0.0.0 --port 5000 
+      --backend-store-uri "${MLFLOW_BACKEND_STORE_URI}" --default-artifact-root s3://mlflow/
 
   minio:
     image: minio/minio:${MINIO_TAG}
@@ -71,7 +72,10 @@ services:
     depends_on:
       - minio
     entrypoint: >
-      /bin/sh -c ' sleep 5;    /usr/bin/mc config host add s3 http://minio:9000 ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY} --api S3v4;  [[ ! -z "`/usr/bin/mc ls s3 | grep challenge`" ]] || /usr/bin/mc mb s3/mlflow;  /usr/bin/mc policy download s3/mlflow;  [[ ! -z "`/usr/bin/mc ls s3 | grep challenge`" ]] || /usr/bin/mc mb s3/data;  /usr/bin/mc policy download s3/data; exit 0; '
+      /bin/sh -c ' sleep 5; 
+      /usr/bin/mc config host add s3 http://minio:9000 ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY} --api S3v4;  
+      [[ ! -z "`/usr/bin/mc ls s3 | grep challenge`" ]] || /usr/bin/mc mb s3/mlflow;  /usr/bin/mc policy download s3/mlflow;  
+      [[ ! -z "`/usr/bin/mc ls s3 | grep challenge`" ]] || /usr/bin/mc mb s3/data;  /usr/bin/mc policy download s3/data; exit 0; '
 
   postgres:
     image: postgres:${POSTGRES_TAG}
