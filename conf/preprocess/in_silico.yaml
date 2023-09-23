@@ -1,3 +1,0 @@
-input_dir: in_silico
-feature_matrix: in_silico_expression_data.csv
-edge_list: in_silico_gold_standard.csv

@@ -1,8 +1,12 @@
 defaults:
   - _self_
-  - preprocess: in_silico
+  - grn: in_silico
   - experiment_tracking: docker
 
-dirs:
+experiment:
+  name: nextflow_graph_machine_learning
+  
+dir:
+  data_dir: data
   preprocessed_dir: preprocessed
   out_dir: out

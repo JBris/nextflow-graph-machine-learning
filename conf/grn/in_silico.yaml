@@ -1,0 +1,5 @@
+input_dir: in_silico
+feature_matrix: expression_data.csv
+edge_list: gold_standard.csv
+from_col: from
+to_col: to

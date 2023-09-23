@@ -1,0 +1,12 @@
+stages:
+  eda:
+    cmd: python bin/eda.py grn.input_dir=in_silico
+    deps:
+    - conf/config.yaml
+    - conf/grn/in_silico.yaml
+    - conf/experiment_tracking/docker.yaml
+    - data/preprocessed/in_silico/gold_standard.csv
+    - bin/eda.py
+    outs:
+    - data/out/in_silico/eda/graph.png
+    - data/out/in_silico/eda/metrics.csv

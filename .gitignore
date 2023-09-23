@@ -173,5 +173,4 @@ pipeline_dag.html
 pipeline_trace.txt
 report-*.html
 trace-*.txt
-out
 .hydra

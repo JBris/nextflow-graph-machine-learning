@@ -17,7 +17,7 @@ process INDEX {
 
     script:
     """
-    preprocess.py  > results.txt
+    dvc repro > results.txt
     """
 }
 
