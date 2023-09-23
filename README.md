@@ -1,1 +1,1 @@
-# nextflow-machine-learning
+# Nextflow Graph Machine Learning
