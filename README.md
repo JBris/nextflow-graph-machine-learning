@@ -11,7 +11,16 @@ Website: [Nextflow Graph Machine Learning](https://jbris.github.io/nextflow-grap
 - [Nextflow Graph Machine Learning](#nextflow-graph-machine-learning)
 - [Table of contents](#table-of-contents)
 - [Introduction](#introduction)
+- [The pipeline](#the-pipeline)
 
 # Introduction
 
-The purpose of this project is to provide a simple demonstration of how to construct a Nextflow pipeline for peforming gene regulatory network (GRN) reconstruction using graph neural networks (GNNs).
+The purpose of this project is to provide a simple demonstration of how to construct a Nextflow pipeline, with MLOps integration, for performing gene regulatory network (GRN) reconstruction using graph neural networks (GNNs). We also demonstrate how to extend the GNN to perform uncertainty quantification using deep kernel learning (DKL).
+
+# The pipeline
+
+The pipeline is composed of the following steps:
+
+1. Exploratory data analysis: View the GRN and calculate some summary statistics.
+2. Processing: Process the graph feature matrix and edge list. Remove the disconnected subgraph.
+3. ArangoDB Importing: Import the graph into ArangoDB.
