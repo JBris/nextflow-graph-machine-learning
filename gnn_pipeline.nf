@@ -17,7 +17,7 @@ process INDEX {
 
     script:
     """
-    pip list --format=freeze  > results.txt
+    preprocess.py  > results.txt
     """
 }
 

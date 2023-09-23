@@ -1,0 +1,8 @@
+defaults:
+  - _self_
+  - preprocess: in_silico
+  - experiment_tracking: docker
+
+dirs:
+  preprocessed_dir: preprocessed
+  out_dir: out

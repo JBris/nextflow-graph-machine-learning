@@ -11,3 +11,6 @@ rm -rf work && \
 
 rm -rf out && \
     mkdir out
+
+rm -rf outputs && \
+    mkdir outputs
