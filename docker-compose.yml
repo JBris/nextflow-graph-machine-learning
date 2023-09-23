@@ -9,6 +9,7 @@ services:
     env_file: .env
     working_dir: ${PWD}
     environment:
+      PROJECT_NAME: $PROJECT_NAME
       USER: $USER
       HOME: $HOME
       NXF_ASSETS: $NXF_ASSETS
@@ -135,7 +136,8 @@ services:
 networks:
   default:
     name: $PROJECT_NAME
-
+    driver: bridge
+    
 volumes:
   postgres-data: {}
   minio-data: {}

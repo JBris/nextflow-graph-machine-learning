@@ -1,26 +1,23 @@
 #!/usr/bin/env nextflow
 
-params.id = "1"
-params.reads = "$projectDir/rna_seq/data/ggal/gut_1.fq"
-params.outdir = "out"
+// ##################################################################
+// Imports
+// ##################################################################
 
-process INDEX {
-    tag "Data for sample: $sample_id"
-    publishDir params.outdir, mode:'copy'
+include { dvc_repro as dvc } from './modules/mlops.nf'
 
-    input:
-    val sample_id
-    path reads
+// ##################################################################
+// Parameters
+// ##################################################################
 
-    output:
-    path 'results.txt'
+params.grn = "in_silico"
+params.edge_list = "$projectDir/data/preprocessed/in_silico/gold_standard.csv"
+params.outdir = "$projectDir/data/out"
 
-    script:
-    """
-    dvc repro > results.txt
-    """
-}
+// ##################################################################
+// Workflow
+// ##################################################################
 
 workflow {
-    index_ch = INDEX(params.id, params.reads)
+    dvc_res = dvc(params.grn, projectDir)
 }
