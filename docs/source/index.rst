@@ -10,7 +10,7 @@ Welcome to Nextflow Graph Machine Learning's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-
+   pipelines/index.rst
 
 Indices and tables
 ==================
