@@ -15,7 +15,7 @@ Website: [Nextflow Graph Machine Learning](https://jbris.github.io/nextflow-grap
 
 # Introduction
 
-The purpose of this project is to provide a simple demonstration of how to construct a Nextflow pipeline, with MLOps integration, for performing gene regulatory network (GRN) reconstruction using graph neural networks (GNNs). We also demonstrate how to extend the GNN to perform uncertainty quantification using deep kernel learning (DKL).
+The purpose of this project is to provide a simple demonstration of how to construct a Nextflow pipeline, with MLOps integration, for performing gene regulatory network (GRN) reconstruction via graph neural networks (GNNs). We then demonstrate how to extend the implementation of the GNN to perform uncertainty quantification using deep kernel learning (DKL).
 
 # The pipeline
 
