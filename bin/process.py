@@ -18,13 +18,16 @@ from pathlib import Path
 ######################################
 
 
-def construct_network(
-    edge_list: pd.DataFrame, from_col: str, to_col: str, len_component: int = 5
-) -> nx.Graph:
+def process_network(
+    feature_matrix: pd.DataFrame, edge_list: pd.DataFrame, from_col: str, to_col: str, 
+    len_component: int = 5
+) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Construct a graph from edge list data.
 
     Args:
+        feature_matrix (pd.DataFrame):
+            The feature matrix.
         edge_list (pd.DataFrame):
             The edge list.
         from_col (str):
@@ -35,8 +38,8 @@ def construct_network(
             The minimum size of a subgraph to filter out. Defaults to 5.
 
     Returns:
-        nx.Graph:
-            The constructed graph.
+        tuple[pd.DataFrame, pd.DataFrame]:
+            The processed graph as a feature matrix and edge list.
     """
     edges = edge_list.sort_values(from_col)
 
@@ -46,79 +49,19 @@ def construct_network(
         if len(component) <= len_component:
             for node in component:
                 G.remove_node(node)
-
-    return G
-
-
-def visualize_graph(G: nx.Graph, output_dir: str) -> str:
-    """
-    Visualise the graph.
-
-    Args:
-        G (nx.Graph):
-            The graph.
-        output_dir (str):
-            The output directory for the visualisation.
-
-    Returns:
-        str:
-            The output directory for the visualisation.
-    """
-    plt.figure(figsize=(7, 7))
-    plt.xticks([])
-    plt.yticks([])
-
-    nx.draw_networkx(
-        G,
-        pos=nx.spring_layout(G, seed=42),
-        with_labels=False,
-        node_color="blue",
-        cmap="Set2",
-        node_size=10,
-    )
-
-    outfile = join_path(output_dir, "graph.png")
-    plt.savefig(outfile)
-    return outfile
-
-
-def calculate_metrics(G: nx.Graph, output_dir: str) -> dict[float]:
-    """
-    Calculate graph metrics.
-
-    Args:
-        G (nx.Graph):
-            The graph.
-        output_dir (str):
-            The output directory for the visualisation.
-
-    Returns:
-        dict[float]:
-            The dictionary of metrics.
-    """
-    metrics = {}
-    for metric_func in [
-        nx.diameter,
-        nx.radius,
-        nx.average_clustering,
-        nx.node_connectivity,
-        nx.degree_assortativity_coefficient,
-        nx.degree_pearson_correlation_coefficient,
-    ]:
-        metrics[metric_func.__name__] = metric_func(G)
-
-    outfile = join_path(output_dir, "metrics.csv")
-    pd.DataFrame(metrics, index=[0]).to_csv(outfile, index=False)
-    return metrics
+    
+    nodes = list(G.nodes)
+    filtered_feature_matrix = feature_matrix[nodes]
+    filtered_edge_list = nx.to_pandas_edgelist(G, source=from_col, target=to_col)
+    return filtered_feature_matrix, filtered_edge_list
 
 
 def log_results(
     tracking_uri: str,
     experiment_prefix: str,
     grn_name: str,
-    edge_list_file: str,
-    network_plot: str,
-    metrics: dict[float],
+    feature_matrix: pd.DataFrame, 
+    edge_list: pd.DataFrame
 ) -> None:
     """
     Log experiment results to the experiment tracker.
@@ -130,18 +73,16 @@ def log_results(
             The experiment name prefix.
         grn_name (str):
             The name of the GRN.
-        edge_list_file (str):
-            The name of the edge list file.
-        network_plot (str):
-            The path to the network plot to add as an artifact.
-        metrics (dict[float]):
-            The dictionary of metrics.
+        feature_matrix (pd.DataFrame):
+            The feature matrix.
+        edge_list (pd.DataFrame):
+            The edge list.
     """
     import mlflow
 
     mlflow.set_tracking_uri(tracking_uri)
 
-    experiment_name = f"{experiment_prefix}_eda"
+    experiment_name = f"{experiment_prefix}_process"
     existing_exp = mlflow.get_experiment_by_name(experiment_name)
     if not existing_exp:
         mlflow.create_experiment(experiment_name)
@@ -150,12 +91,10 @@ def log_results(
     mlflow.set_tag("grn", grn_name)
 
     mlflow.log_param("grn", grn_name)
-    mlflow.log_param("edge_list_file_name", edge_list_file)
 
-    for k in metrics:
-        mlflow.log_metric(k, metrics[k])
-
-    mlflow.log_artifact(network_plot)
+    mlflow.log_metric("num_features", len(feature_matrix.index))
+    mlflow.log_metric("num_nodes", len(feature_matrix.columns))
+    mlflow.log_metric("num_1st_order_relationships", len(edge_list.index))
 
     mlflow.end_run()
 
@@ -180,6 +119,7 @@ def main(config: DictConfig) -> None:
     OUT_DIR = config["dir"]["out_dir"]
 
     GRN_NAME = config["grn"]["input_dir"]
+    FEATURE_MATRIX_FILE = config["grn"]["feature_matrix"]
     EDGE_LIST_FILE = config["grn"]["edge_list"]
     FROM_COL = config["grn"]["from_col"]
     TO_COL = config["grn"]["to_col"]
@@ -188,26 +128,25 @@ def main(config: DictConfig) -> None:
     ENABLE_TRACKING = config["experiment_tracking"]["enabled"]
 
     input_dir = join_path(DATA_DIR, PREPROCESS_DIR, GRN_NAME)
+    feature_matrix = pd.read_csv(join_path(input_dir, FEATURE_MATRIX_FILE))
     edge_list = pd.read_csv(join_path(input_dir, EDGE_LIST_FILE))
 
-    G = construct_network(edge_list, FROM_COL, TO_COL)
+    filtered_feature_matrix, filtered_edge_list = process_network(feature_matrix, edge_list, FROM_COL, TO_COL)
 
-    output_dir = join_path(DATA_DIR, OUT_DIR, GRN_NAME, "eda")
+    output_dir = join_path(DATA_DIR, OUT_DIR, GRN_NAME, "process")
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
-    network_plot = visualize_graph(G, output_dir)
-    metrics = calculate_metrics(G, output_dir)
+    filtered_feature_matrix.to_csv(join_path(output_dir, FEATURE_MATRIX_FILE))
+    filtered_edge_list.to_csv(join_path(output_dir, EDGE_LIST_FILE), index=False)
 
     if ENABLE_TRACKING:
         log_results(
             TRACKING_URI,
             EXPERIMENT_PREFIX,
             GRN_NAME,
-            EDGE_LIST_FILE,
-            network_plot,
-            metrics,
+            filtered_feature_matrix,
+            filtered_edge_list,
         )
-
 
 if __name__ == "__main__":
     main()

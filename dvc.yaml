@@ -1,6 +1,6 @@
 stages:
   eda:
-    cmd: python bin/eda.py grn.input_dir=in_silico
+    cmd: python bin/eda.py grn.input_dir=in_silico grn.edge_list=gold_standard.csv
     deps:
     - conf/config.yaml
     - conf/grn/in_silico.yaml
@@ -10,3 +10,15 @@ stages:
     outs:
     - data/out/in_silico/eda/graph.png
     - data/out/in_silico/eda/metrics.csv
+  process:
+    cmd: python bin/process.py grn.input_dir=in_silico grn.feature_matrix=expression_data.csv grn.edge_list=gold_standard.csv
+    deps:
+    - conf/config.yaml
+    - conf/grn/in_silico.yaml
+    - conf/experiment_tracking/docker.yaml
+    - data/preprocessed/in_silico/expression_data.csv
+    - data/preprocessed/in_silico/gold_standard.csv
+    - bin/process.py
+    outs:
+    - data/out/in_silico/process/expression_data.csv
+    - data/out/in_silico/process/gold_standard.csv
