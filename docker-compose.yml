@@ -7,8 +7,11 @@ services:
     container_name: ${PROJECT_NAME}-nextflow
     hostname: nextflow
     env_file: .env
+    working_dir: ${PWD}
     volumes:
-      - .:/nf
+      - ${PWD}:${PWD}
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ${HOME}:${HOME}:ro
 
   mlflow:
     image: $GITHUB_CONTAINER_REPO

@@ -1,3 +1,5 @@
+#!/usr/bin/env nextflow
+
 params.id = "1"
 params.reads = "$projectDir/rna_seq/data/ggal/gut_1.fq"
 params.outdir = "out"
