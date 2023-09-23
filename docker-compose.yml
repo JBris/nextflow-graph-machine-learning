@@ -8,10 +8,18 @@ services:
     hostname: nextflow
     env_file: .env
     working_dir: ${PWD}
+    environment:
+      USER: $USER
+      HOME: $HOME
+      NXF_ASSETS: $NXF_ASSETS
+      AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
+      AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
+      MLFLOW_S3_ENDPOINT_URL: $MLFLOW_S3_ENDPOINT_URL
     volumes:
-      - ${PWD}:${PWD}
+      - ${PWD}:${PWD}:Z
       - /var/run/docker.sock:/var/run/docker.sock
-      - ${HOME}:${HOME}:ro
+      - ${HOME}:${HOME}:ro,Z
+      - ${NXF_ASSETS}:${NXF_ASSETS}:Z
 
   mlflow:
     image: $GITHUB_CONTAINER_REPO
@@ -22,7 +30,7 @@ services:
     env_file: .env
     environment:
       MLFLOW_BACKEND_STORE_URI: $MLFLOW_BACKEND_STORE_URI
-      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+      MLFLOW_S3_ENDPOINT_URL: $MLFLOW_S3_ENDPOINT_URL
       AWS_ACCESS_KEY_ID: $AWS_ACCESS_KEY_ID
       AWS_SECRET_ACCESS_KEY: $AWS_SECRET_ACCESS_KEY
     ports:
@@ -46,6 +54,9 @@ services:
     environment:
       MINIO_ACCESS_KEY: $MINIO_ACCESS_KEY
       MINIO_SECRET_KEY: $MINIO_SECRET_KEY
+      MINIO_ROOT_USER: $MINIO_ROOT_USER
+      MINIO_ROOT_PASSWORD: $MINIO_ROOT_PASSWORD
+      MINIO_STORAGE_USE_HTTPS: $MINIO_STORAGE_USE_HTTPS
     command: server /data --console-address ':9001' --address ':9000'
 
   mc:
@@ -60,7 +71,7 @@ services:
     depends_on:
       - minio
     entrypoint: >
-      /bin/sh -c ' sleep 5;   /usr/bin/mc config host add s3 http://minio:9000 ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY} --api S3v4;  [[ ! -z "`/usr/bin/mc ls s3 | grep challenge`" ]] || /usr/bin/mc mb s3/mlflow;  /usr/bin/mc policy download s3/mlflow;  [[ ! -z "`/usr/bin/mc ls s3 | grep challenge`" ]] || /usr/bin/mc mb s3/data;  /usr/bin/mc policy download s3/data; exit 0; '
+      /bin/sh -c ' sleep 5;    /usr/bin/mc config host add s3 http://minio:9000 ${MINIO_ACCESS_KEY} ${MINIO_SECRET_KEY} --api S3v4;  [[ ! -z "`/usr/bin/mc ls s3 | grep challenge`" ]] || /usr/bin/mc mb s3/mlflow;  /usr/bin/mc policy download s3/mlflow;  [[ ! -z "`/usr/bin/mc ls s3 | grep challenge`" ]] || /usr/bin/mc mb s3/data;  /usr/bin/mc policy download s3/data; exit 0; '
 
   postgres:
     image: postgres:${POSTGRES_TAG}
@@ -77,6 +88,21 @@ services:
       - ${DB_PORT}:5432
     volumes:
       - postgres-data:/var/lib/postgresql/data
+
+  arangodb:
+    image: arangodb:${ARANGODB_TAG}
+    container_name: ${PROJECT_NAME}-arangodb
+    hostname: arangodb
+    restart: unless-stopped
+    stop_grace_period: 10s
+    env_file: .env
+    environment:
+      ARANGO_ROOT_PASSWORD: $ARANGO_ROOT_PASSWORD
+    ports:
+      - ${ARANGODB_PORT}:8529
+    volumes:
+      - arangodb-data:/var/lib/arangodb3
+      - arangodb-app-data:/var/lib/arangodb3-apps
 
   adminer:
     image: adminer:${ADMINER_TAG}
@@ -110,3 +136,5 @@ volumes:
   postgres-data: {}
   minio-data: {}
   portainer-data: {}
+  arangodb-data: {}
+  arangodb-app-data: {}
