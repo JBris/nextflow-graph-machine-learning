@@ -34,12 +34,12 @@ stages:
     deps:
     - path: bin/eda.py
       hash: md5
-      md5: c2f1b995f4f9f7b040c43935a25d4b62
-      size: 5432
+      md5: cc666f68387d125f4b2786d6f8d4bf44
+      size: 5415
     - path: conf/config.yaml
       hash: md5
-      md5: 1dda4ab35427c3f6d36d6649032c2cd2
-      size: 210
+      md5: df461d05b2f0672a3193b546d5d21e63
+      size: 253
     - path: conf/experiment_tracking/docker.yaml
       hash: md5
       md5: f9a686d34db5162fc959ca7470695aad
@@ -60,8 +60,8 @@ stages:
       isexec: true
     - path: data/out/in_silico/eda/metrics.csv
       hash: md5
-      md5: ec1ac03c4923b48c493eab3886bea489
-      size: 191
+      md5: 7d25de86a25ef4754267823695f8b3aa
+      size: 193
       isexec: true
   process:
     cmd: python bin/process.py grn.input_dir=in_silico grn.feature_matrix=expression_data.csv
@@ -69,12 +69,12 @@ stages:
     deps:
     - path: bin/process.py
       hash: md5
-      md5: 00b4bc49fcac48a47cb61cc8940d48fd
-      size: 4582
+      md5: 57fc391cdee0758840461ccf1468aa15
+      size: 4584
     - path: conf/config.yaml
       hash: md5
-      md5: 1dda4ab35427c3f6d36d6649032c2cd2
-      size: 210
+      md5: df461d05b2f0672a3193b546d5d21e63
+      size: 253
     - path: conf/experiment_tracking/docker.yaml
       hash: md5
       md5: f9a686d34db5162fc959ca7470695aad
@@ -92,12 +92,12 @@ stages:
       md5: 280e46f849dffad692ec41922b1304e3
       size: 48325
     outs:
-    - path: data/out/in_silico/process/expression_data.csv
+    - path: data/out/in_silico/processed/expression_data.csv
       hash: md5
       md5: 70b70518c6dbd8489451b8fc88c5e000
       size: 12415950
       isexec: true
-    - path: data/out/in_silico/process/gold_standard.csv
+    - path: data/out/in_silico/processed/gold_standard.csv
       hash: md5
       md5: 8988a2f805eaa860e550ea6613eef862
       size: 40110

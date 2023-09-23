@@ -7,7 +7,6 @@
 import hydra
 import matplotlib.pyplot as plt
 import networkx as nx
-import numpy as np
 from omegaconf import DictConfig
 from os.path import join as join_path
 import pandas as pd
@@ -159,9 +158,11 @@ def log_results(
 
     mlflow.end_run()
 
+
 ######################################
 # Main
 ######################################
+
 
 @hydra.main(version_base=None, config_path="../conf", config_name="config")
 def main(config: DictConfig) -> None:

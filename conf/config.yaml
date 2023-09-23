@@ -1,6 +1,7 @@
 defaults:
   - _self_
   - grn: in_silico
+  - db: graph
   - experiment_tracking: docker
 
 experiment:
@@ -9,4 +10,5 @@ experiment:
 dir:
   data_dir: data
   preprocessed_dir: preprocessed
+  processed_dir: processed
   out_dir: out

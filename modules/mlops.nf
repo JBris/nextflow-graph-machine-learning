@@ -9,15 +9,19 @@
 * Maybe it makes more sense to call a Nextflow pipeline from a DVC step. 
 * Or use Airflow/Prefect + DVC instead.
 */
-process dvc_repro {
+process dvcRepro {
     tag "Data for GRN: $grn"
     
     input:
     val grn
     path baseDir
 
+    output: 
+    val 'processed'
+
     script:
     """
-    cd $baseDir && dvc repro
+    cd $baseDir && \
+    dvc repro
     """
 }

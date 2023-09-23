@@ -1,0 +1,4 @@
+host: http://arangodb:8529
+name: grn
+username: root
+password: password

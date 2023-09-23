@@ -20,5 +20,5 @@ stages:
     - data/preprocessed/in_silico/gold_standard.csv
     - bin/process.py
     outs:
-    - data/out/in_silico/process/expression_data.csv
-    - data/out/in_silico/process/gold_standard.csv
+    - data/out/in_silico/processed/expression_data.csv
+    - data/out/in_silico/processed/gold_standard.csv

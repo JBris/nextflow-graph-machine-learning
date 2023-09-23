@@ -5,9 +5,7 @@
 ######################################
 
 import hydra
-import matplotlib.pyplot as plt
 import networkx as nx
-import numpy as np
 from omegaconf import DictConfig
 from os.path import join as join_path
 import pandas as pd
@@ -19,8 +17,11 @@ from pathlib import Path
 
 
 def process_network(
-    feature_matrix: pd.DataFrame, edge_list: pd.DataFrame, from_col: str, to_col: str, 
-    len_component: int = 5
+    feature_matrix: pd.DataFrame,
+    edge_list: pd.DataFrame,
+    from_col: str,
+    to_col: str,
+    len_component: int = 5,
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Construct a graph from edge list data.
@@ -49,7 +50,7 @@ def process_network(
         if len(component) <= len_component:
             for node in component:
                 G.remove_node(node)
-    
+
     nodes = list(G.nodes)
     filtered_feature_matrix = feature_matrix[nodes]
     filtered_edge_list = nx.to_pandas_edgelist(G, source=from_col, target=to_col)
@@ -60,8 +61,8 @@ def log_results(
     tracking_uri: str,
     experiment_prefix: str,
     grn_name: str,
-    feature_matrix: pd.DataFrame, 
-    edge_list: pd.DataFrame
+    feature_matrix: pd.DataFrame,
+    edge_list: pd.DataFrame,
 ) -> None:
     """
     Log experiment results to the experiment tracker.
@@ -94,13 +95,15 @@ def log_results(
 
     mlflow.log_metric("num_features", len(feature_matrix.index))
     mlflow.log_metric("num_nodes", len(feature_matrix.columns))
-    mlflow.log_metric("num_1st_order_relationships", len(edge_list.index))
+    mlflow.log_metric("num_edges", len(edge_list.index))
 
     mlflow.end_run()
+
 
 ######################################
 # Main
 ######################################
+
 
 @hydra.main(version_base=None, config_path="../conf", config_name="config")
 def main(config: DictConfig) -> None:
@@ -116,6 +119,7 @@ def main(config: DictConfig) -> None:
 
     DATA_DIR = config["dir"]["data_dir"]
     PREPROCESS_DIR = config["dir"]["preprocessed_dir"]
+    PROCESS_DIR = config["dir"]["processed_dir"]
     OUT_DIR = config["dir"]["out_dir"]
 
     GRN_NAME = config["grn"]["input_dir"]
@@ -131,9 +135,11 @@ def main(config: DictConfig) -> None:
     feature_matrix = pd.read_csv(join_path(input_dir, FEATURE_MATRIX_FILE))
     edge_list = pd.read_csv(join_path(input_dir, EDGE_LIST_FILE))
 
-    filtered_feature_matrix, filtered_edge_list = process_network(feature_matrix, edge_list, FROM_COL, TO_COL)
+    filtered_feature_matrix, filtered_edge_list = process_network(
+        feature_matrix, edge_list, FROM_COL, TO_COL
+    )
 
-    output_dir = join_path(DATA_DIR, OUT_DIR, GRN_NAME, "process")
+    output_dir = join_path(DATA_DIR, OUT_DIR, GRN_NAME, PROCESS_DIR)
     Path(output_dir).mkdir(parents=True, exist_ok=True)
 
     filtered_feature_matrix.to_csv(join_path(output_dir, FEATURE_MATRIX_FILE))
@@ -147,6 +153,7 @@ def main(config: DictConfig) -> None:
             filtered_feature_matrix,
             filtered_edge_list,
         )
+
 
 if __name__ == "__main__":
     main()

@@ -4,20 +4,22 @@
 // Imports
 // ##################################################################
 
-include { dvc_repro as dvc } from './modules/mlops.nf'
+include { dvcRepro as dvc } from './modules/mlops.nf'
+include { toDb } from './modules/db.nf'
 
 // ##################################################################
 // Parameters
 // ##################################################################
 
 params.grn = "in_silico"
-params.edge_list = "$projectDir/data/preprocessed/in_silico/gold_standard.csv"
-params.outdir = "$projectDir/data/out"
+params.edgeList = "gold_standard.csv"
+params.featureMatrix = "expression_data.csv"
 
 // ##################################################################
 // Workflow
 // ##################################################################
 
 workflow {
-    dvc_res = dvc(params.grn, projectDir)
+    processedDir = dvc(params.grn, projectDir)
+    db_res = toDb(params.grn, projectDir, processedDir, params.featureMatrix, params.edgeList)
 }
