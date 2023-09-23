@@ -1,0 +1,284 @@
+
+
+<!doctype html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>bin.to_db &#8212; Nextflow Graph Machine Learning  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=649a27d8" />
+    <link rel="stylesheet" type="text/css" href="../../_static/bizstyle.css?v=532c1bf3" />
+    
+    <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/bizstyle.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <!--[if lt IE 9]>
+    <script src="_static/css3-mediaqueries.js"></script>
+    <![endif]-->
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">Nextflow Graph Machine Learning  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">bin.to_db</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for bin.to_db</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python</span>
+
+<span class="c1">######################################</span>
+<span class="c1"># Imports</span>
+<span class="c1">######################################</span>
+
+<span class="kn">from</span> <span class="nn">adbnx_adapter</span> <span class="kn">import</span> <span class="n">ADBNX_Adapter</span>
+<span class="kn">from</span> <span class="nn">arango</span> <span class="kn">import</span> <span class="n">ArangoClient</span>
+<span class="kn">import</span> <span class="nn">hydra</span>
+<span class="kn">import</span> <span class="nn">networkx</span> <span class="k">as</span> <span class="nn">nx</span>
+<span class="kn">from</span> <span class="nn">omegaconf</span> <span class="kn">import</span> <span class="n">DictConfig</span>
+<span class="kn">from</span> <span class="nn">os.path</span> <span class="kn">import</span> <span class="n">join</span> <span class="k">as</span> <span class="n">join_path</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+
+
+<span class="c1">######################################</span>
+<span class="c1"># Functions</span>
+<span class="c1">######################################</span>
+
+
+<div class="viewcode-block" id="log_results">
+<a class="viewcode-back" href="../../pipelines/to_db.html#bin.to_db.log_results">[docs]</a>
+<span class="k">def</span> <span class="nf">log_results</span><span class="p">(</span>
+    <span class="n">tracking_uri</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">experiment_prefix</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">grn_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">feature_matrix</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+    <span class="n">edge_list</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Log experiment results to the experiment tracker.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        tracking_uri (str):</span>
+<span class="sd">            The tracking URI.</span>
+<span class="sd">        experiment_prefix (str):</span>
+<span class="sd">            The experiment name prefix.</span>
+<span class="sd">        grn_name (str):</span>
+<span class="sd">            The name of the GRN.</span>
+<span class="sd">        feature_matrix (pd.DataFrame):</span>
+<span class="sd">            The feature matrix.</span>
+<span class="sd">        edge_list (pd.DataFrame):</span>
+<span class="sd">            The edge list.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="kn">import</span> <span class="nn">mlflow</span>
+
+    <span class="n">mlflow</span><span class="o">.</span><span class="n">set_tracking_uri</span><span class="p">(</span><span class="n">tracking_uri</span><span class="p">)</span>
+
+    <span class="n">experiment_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">experiment_prefix</span><span class="si">}</span><span class="s2">_process&quot;</span>
+    <span class="n">existing_exp</span> <span class="o">=</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">get_experiment_by_name</span><span class="p">(</span><span class="n">experiment_name</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">existing_exp</span><span class="p">:</span>
+        <span class="n">mlflow</span><span class="o">.</span><span class="n">create_experiment</span><span class="p">(</span><span class="n">experiment_name</span><span class="p">)</span>
+    <span class="n">mlflow</span><span class="o">.</span><span class="n">set_experiment</span><span class="p">(</span><span class="n">experiment_name</span><span class="p">)</span>
+
+    <span class="n">mlflow</span><span class="o">.</span><span class="n">set_tag</span><span class="p">(</span><span class="s2">&quot;grn&quot;</span><span class="p">,</span> <span class="n">grn_name</span><span class="p">)</span>
+
+    <span class="n">mlflow</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span><span class="s2">&quot;grn&quot;</span><span class="p">,</span> <span class="n">grn_name</span><span class="p">)</span>
+
+    <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span><span class="s2">&quot;num_features&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">feature_matrix</span><span class="o">.</span><span class="n">index</span><span class="p">))</span>
+    <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span><span class="s2">&quot;num_nodes&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">feature_matrix</span><span class="o">.</span><span class="n">columns</span><span class="p">))</span>
+    <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span><span class="s2">&quot;num_edges&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">edge_list</span><span class="o">.</span><span class="n">index</span><span class="p">))</span>
+
+    <span class="n">mlflow</span><span class="o">.</span><span class="n">end_run</span><span class="p">()</span></div>
+
+
+
+<span class="c1">######################################</span>
+<span class="c1"># Main</span>
+<span class="c1">######################################</span>
+
+
+<div class="viewcode-block" id="get_graph">
+<a class="viewcode-back" href="../../pipelines/to_db.html#bin.to_db.get_graph">[docs]</a>
+<span class="k">def</span> <span class="nf">get_graph</span><span class="p">(</span>
+    <span class="n">feature_matrix</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">edge_list</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">from_col</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">to_col</span><span class="p">:</span> <span class="nb">str</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Construct a graph from edge list data.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        feature_matrix (pd.DataFrame):</span>
+<span class="sd">            The feature matrix.</span>
+<span class="sd">        edge_list (pd.DataFrame):</span>
+<span class="sd">            The edge list.</span>
+<span class="sd">        from_col (str):</span>
+<span class="sd">            The &quot;from&quot; column name.</span>
+<span class="sd">        to_col (str):</span>
+<span class="sd">            The &quot;to&quot; column name.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        nx.Graph:</span>
+<span class="sd">            The graph to write to the database.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">edges</span> <span class="o">=</span> <span class="n">edge_list</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">from_col</span><span class="p">)</span>
+
+    <span class="n">G</span> <span class="o">=</span> <span class="n">nx</span><span class="o">.</span><span class="n">from_pandas_edgelist</span><span class="p">(</span><span class="n">edges</span><span class="p">,</span> <span class="n">from_col</span><span class="p">,</span> <span class="n">to_col</span><span class="p">,</span> <span class="n">create_using</span><span class="o">=</span><span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">())</span>
+    <span class="n">node_features</span> <span class="o">=</span> <span class="n">feature_matrix</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
+    <span class="n">nx</span><span class="o">.</span><span class="n">set_node_attributes</span><span class="p">(</span><span class="n">G</span><span class="p">,</span> <span class="n">node_features</span><span class="p">,</span> <span class="s2">&quot;expression&quot;</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">G</span></div>
+
+
+
+<div class="viewcode-block" id="to_db">
+<a class="viewcode-back" href="../../pipelines/to_db.html#bin.to_db.to_db">[docs]</a>
+<span class="k">def</span> <span class="nf">to_db</span><span class="p">(</span>
+    <span class="n">db_host</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">db_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">db_username</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">db_password</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">collection</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">G</span><span class="p">:</span> <span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Write the graph to the database.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        db_host (str):</span>
+<span class="sd">            The database host.</span>
+<span class="sd">        db_name (str):</span>
+<span class="sd">            The database name.</span>
+<span class="sd">        db_username (str):</span>
+<span class="sd">            The database username.</span>
+<span class="sd">        db_password (str):</span>
+<span class="sd">            The database password.</span>
+<span class="sd">        collection (str):</span>
+<span class="sd">            The database collection.</span>
+<span class="sd">        G (nx.Graph):</span>
+<span class="sd">            The graph.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">sys_db</span> <span class="o">=</span> <span class="n">ArangoClient</span><span class="p">(</span><span class="n">hosts</span><span class="o">=</span><span class="n">db_host</span><span class="p">)</span><span class="o">.</span><span class="n">db</span><span class="p">(</span>
+        <span class="s2">&quot;_system&quot;</span><span class="p">,</span> <span class="n">username</span><span class="o">=</span><span class="n">db_username</span><span class="p">,</span> <span class="n">password</span><span class="o">=</span><span class="n">db_password</span>
+    <span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">sys_db</span><span class="o">.</span><span class="n">has_database</span><span class="p">(</span><span class="n">db_name</span><span class="p">):</span>
+        <span class="n">sys_db</span><span class="o">.</span><span class="n">create_database</span><span class="p">(</span><span class="n">db_name</span><span class="p">)</span>
+    <span class="n">db</span> <span class="o">=</span> <span class="n">ArangoClient</span><span class="p">(</span><span class="n">hosts</span><span class="o">=</span><span class="n">db_host</span><span class="p">)</span><span class="o">.</span><span class="n">db</span><span class="p">(</span>
+        <span class="n">db_name</span><span class="p">,</span> <span class="n">username</span><span class="o">=</span><span class="n">db_username</span><span class="p">,</span> <span class="n">password</span><span class="o">=</span><span class="n">db_password</span>
+    <span class="p">)</span>
+
+    <span class="n">edges_collection</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">collection</span><span class="si">}</span><span class="s2">_edges&quot;</span>
+    <span class="k">for</span> <span class="n">db_collection</span> <span class="ow">in</span> <span class="p">[</span><span class="n">collection</span><span class="p">,</span> <span class="n">edges_collection</span><span class="p">]:</span>
+        <span class="k">if</span> <span class="n">db</span><span class="o">.</span><span class="n">has_collection</span><span class="p">(</span><span class="n">db_collection</span><span class="p">):</span>
+            <span class="n">db</span><span class="o">.</span><span class="n">delete_collection</span><span class="p">(</span><span class="n">db_collection</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">db</span><span class="o">.</span><span class="n">has_graph</span><span class="p">(</span><span class="n">collection</span><span class="p">):</span>
+        <span class="n">db</span><span class="o">.</span><span class="n">delete_graph</span><span class="p">(</span><span class="n">collection</span><span class="p">)</span>
+
+    <span class="n">graph_definitions</span> <span class="o">=</span> <span class="p">[</span>
+        <span class="p">{</span>
+            <span class="s2">&quot;edge_collection&quot;</span><span class="p">:</span> <span class="n">edges_collection</span><span class="p">,</span>
+            <span class="s2">&quot;from_vertex_collections&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">collection</span><span class="p">],</span>
+            <span class="s2">&quot;to_vertex_collections&quot;</span><span class="p">:</span> <span class="p">[</span><span class="n">collection</span><span class="p">],</span>
+        <span class="p">}</span>
+    <span class="p">]</span>
+
+    <span class="n">adapter</span> <span class="o">=</span> <span class="n">ADBNX_Adapter</span><span class="p">(</span><span class="n">db</span><span class="p">)</span>
+    <span class="n">adapter</span><span class="o">.</span><span class="n">networkx_to_arangodb</span><span class="p">(</span><span class="n">collection</span><span class="p">,</span> <span class="n">G</span><span class="p">,</span> <span class="n">graph_definitions</span><span class="p">)</span></div>
+
+
+
+<div class="viewcode-block" id="main">
+<a class="viewcode-back" href="../../pipelines/to_db.html#bin.to_db.main">[docs]</a>
+<span class="nd">@hydra</span><span class="o">.</span><span class="n">main</span><span class="p">(</span><span class="n">version_base</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">config_path</span><span class="o">=</span><span class="s2">&quot;../conf&quot;</span><span class="p">,</span> <span class="n">config_name</span><span class="o">=</span><span class="s2">&quot;config&quot;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">main</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">DictConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    The main entry point for the plotting pipeline.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        config (DictConfig):</span>
+<span class="sd">            The pipeline configuration.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="c1"># Constants</span>
+    <span class="n">DATA_DIR</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;dir&quot;</span><span class="p">][</span><span class="s2">&quot;data_dir&quot;</span><span class="p">]</span>
+    <span class="n">PROCESS_DIR</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;dir&quot;</span><span class="p">][</span><span class="s2">&quot;processed_dir&quot;</span><span class="p">]</span>
+    <span class="n">OUT_DIR</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;dir&quot;</span><span class="p">][</span><span class="s2">&quot;out_dir&quot;</span><span class="p">]</span>
+
+    <span class="n">GRN_NAME</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;grn&quot;</span><span class="p">][</span><span class="s2">&quot;input_dir&quot;</span><span class="p">]</span>
+    <span class="n">FEATURE_MATRIX_FILE</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;grn&quot;</span><span class="p">][</span><span class="s2">&quot;feature_matrix&quot;</span><span class="p">]</span>
+    <span class="n">EDGE_LIST_FILE</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;grn&quot;</span><span class="p">][</span><span class="s2">&quot;edge_list&quot;</span><span class="p">]</span>
+    <span class="n">FROM_COL</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;grn&quot;</span><span class="p">][</span><span class="s2">&quot;from_col&quot;</span><span class="p">]</span>
+    <span class="n">TO_COL</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;grn&quot;</span><span class="p">][</span><span class="s2">&quot;to_col&quot;</span><span class="p">]</span>
+
+    <span class="n">DB_HOST</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;db&quot;</span><span class="p">][</span><span class="s2">&quot;host&quot;</span><span class="p">]</span>
+    <span class="n">DB_NAME</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;db&quot;</span><span class="p">][</span><span class="s2">&quot;name&quot;</span><span class="p">]</span>
+    <span class="n">DB_USERNAME</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;db&quot;</span><span class="p">][</span><span class="s2">&quot;username&quot;</span><span class="p">]</span>
+    <span class="n">DB_PASSWORD</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;db&quot;</span><span class="p">][</span><span class="s2">&quot;password&quot;</span><span class="p">]</span>
+
+    <span class="n">input_dir</span> <span class="o">=</span> <span class="n">join_path</span><span class="p">(</span><span class="n">DATA_DIR</span><span class="p">,</span> <span class="n">OUT_DIR</span><span class="p">,</span> <span class="n">GRN_NAME</span><span class="p">,</span> <span class="n">PROCESS_DIR</span><span class="p">)</span>
+    <span class="n">feature_matrix</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">join_path</span><span class="p">(</span><span class="n">input_dir</span><span class="p">,</span> <span class="n">FEATURE_MATRIX_FILE</span><span class="p">))</span>
+    <span class="n">edge_list</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">join_path</span><span class="p">(</span><span class="n">input_dir</span><span class="p">,</span> <span class="n">EDGE_LIST_FILE</span><span class="p">))</span>
+
+    <span class="n">G</span> <span class="o">=</span> <span class="n">get_graph</span><span class="p">(</span><span class="n">feature_matrix</span><span class="p">,</span> <span class="n">edge_list</span><span class="p">,</span> <span class="n">FROM_COL</span><span class="p">,</span> <span class="n">TO_COL</span><span class="p">)</span>
+    <span class="n">to_db</span><span class="p">(</span><span class="n">DB_HOST</span><span class="p">,</span> <span class="n">DB_NAME</span><span class="p">,</span> <span class="n">DB_USERNAME</span><span class="p">,</span> <span class="n">DB_PASSWORD</span><span class="p">,</span> <span class="n">GRN_NAME</span><span class="p">,</span> <span class="n">G</span><span class="p">)</span></div>
+
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">Nextflow Graph Machine Learning  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">bin.to_db</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2023, James Bristow.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.2.5.
+    </div>
+  </body>
+</html>

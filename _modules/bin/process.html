@@ -6,7 +6,7 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>bin.eda &#8212; Nextflow Graph Machine Learning  documentation</title>
+    <title>bin.process &#8212; Nextflow Graph Machine Learning  documentation</title>
     <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=649a27d8" />
     <link rel="stylesheet" type="text/css" href="../../_static/bizstyle.css?v=532c1bf3" />
     
@@ -32,7 +32,7 @@
              >modules</a> |</li>
         <li class="nav-item nav-item-0"><a href="../../index.html">Nextflow Graph Machine Learning  documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li>
-        <li class="nav-item nav-item-this"><a href="">bin.eda</a></li> 
+        <li class="nav-item nav-item-this"><a href="">bin.process</a></li> 
       </ul>
     </div>  
 
@@ -41,7 +41,7 @@
         <div class="bodywrapper">
           <div class="body" role="main">
             
-  <h1>Source code for bin.eda</h1><div class="highlight"><pre>
+  <h1>Source code for bin.process</h1><div class="highlight"><pre>
 <span></span><span class="ch">#!/usr/bin/env python</span>
 
 <span class="c1">######################################</span>
@@ -49,7 +49,6 @@
 <span class="c1">######################################</span>
 
 <span class="kn">import</span> <span class="nn">hydra</span>
-<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
 <span class="kn">import</span> <span class="nn">networkx</span> <span class="k">as</span> <span class="nn">nx</span>
 <span class="kn">from</span> <span class="nn">omegaconf</span> <span class="kn">import</span> <span class="n">DictConfig</span>
 <span class="kn">from</span> <span class="nn">os.path</span> <span class="kn">import</span> <span class="n">join</span> <span class="k">as</span> <span class="n">join_path</span>
@@ -61,15 +60,21 @@
 <span class="c1">######################################</span>
 
 
-<div class="viewcode-block" id="construct_network">
-<a class="viewcode-back" href="../../pipelines/eda.html#bin.eda.construct_network">[docs]</a>
-<span class="k">def</span> <span class="nf">construct_network</span><span class="p">(</span>
-    <span class="n">edge_list</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">from_col</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">to_col</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">len_component</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span>
-<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">:</span>
+<div class="viewcode-block" id="process_network">
+<a class="viewcode-back" href="../../pipelines/process.html#bin.process.process_network">[docs]</a>
+<span class="k">def</span> <span class="nf">process_network</span><span class="p">(</span>
+    <span class="n">feature_matrix</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+    <span class="n">edge_list</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+    <span class="n">from_col</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">to_col</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">len_component</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">5</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">]:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Construct a graph from edge list data.</span>
 
 <span class="sd">    Args:</span>
+<span class="sd">        feature_matrix (pd.DataFrame):</span>
+<span class="sd">            The feature matrix.</span>
 <span class="sd">        edge_list (pd.DataFrame):</span>
 <span class="sd">            The edge list.</span>
 <span class="sd">        from_col (str):</span>
@@ -80,8 +85,8 @@
 <span class="sd">            The minimum size of a subgraph to filter out. Defaults to 5.</span>
 
 <span class="sd">    Returns:</span>
-<span class="sd">        nx.Graph:</span>
-<span class="sd">            The constructed graph.</span>
+<span class="sd">        tuple[pd.DataFrame, pd.DataFrame]:</span>
+<span class="sd">            The processed graph as a feature matrix and edge list.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="n">edges</span> <span class="o">=</span> <span class="n">edge_list</span><span class="o">.</span><span class="n">sort_values</span><span class="p">(</span><span class="n">from_col</span><span class="p">)</span>
 
@@ -92,87 +97,21 @@
             <span class="k">for</span> <span class="n">node</span> <span class="ow">in</span> <span class="n">component</span><span class="p">:</span>
                 <span class="n">G</span><span class="o">.</span><span class="n">remove_node</span><span class="p">(</span><span class="n">node</span><span class="p">)</span>
 
-    <span class="k">return</span> <span class="n">G</span></div>
-
-
-
-<div class="viewcode-block" id="visualize_graph">
-<a class="viewcode-back" href="../../pipelines/eda.html#bin.eda.visualize_graph">[docs]</a>
-<span class="k">def</span> <span class="nf">visualize_graph</span><span class="p">(</span><span class="n">G</span><span class="p">:</span> <span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Visualise the graph.</span>
-
-<span class="sd">    Args:</span>
-<span class="sd">        G (nx.Graph):</span>
-<span class="sd">            The graph.</span>
-<span class="sd">        output_dir (str):</span>
-<span class="sd">            The output directory for the visualisation.</span>
-
-<span class="sd">    Returns:</span>
-<span class="sd">        str:</span>
-<span class="sd">            The output directory for the visualisation.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">figure</span><span class="p">(</span><span class="n">figsize</span><span class="o">=</span><span class="p">(</span><span class="mi">7</span><span class="p">,</span> <span class="mi">7</span><span class="p">))</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">xticks</span><span class="p">([])</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">yticks</span><span class="p">([])</span>
-
-    <span class="n">nx</span><span class="o">.</span><span class="n">draw_networkx</span><span class="p">(</span>
-        <span class="n">G</span><span class="p">,</span>
-        <span class="n">pos</span><span class="o">=</span><span class="n">nx</span><span class="o">.</span><span class="n">spring_layout</span><span class="p">(</span><span class="n">G</span><span class="p">,</span> <span class="n">seed</span><span class="o">=</span><span class="mi">42</span><span class="p">),</span>
-        <span class="n">with_labels</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-        <span class="n">node_color</span><span class="o">=</span><span class="s2">&quot;blue&quot;</span><span class="p">,</span>
-        <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;Set2&quot;</span><span class="p">,</span>
-        <span class="n">node_size</span><span class="o">=</span><span class="mi">10</span><span class="p">,</span>
-    <span class="p">)</span>
-
-    <span class="n">outfile</span> <span class="o">=</span> <span class="n">join_path</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="s2">&quot;graph.png&quot;</span><span class="p">)</span>
-    <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">outfile</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">outfile</span></div>
-
-
-
-<div class="viewcode-block" id="calculate_metrics">
-<a class="viewcode-back" href="../../pipelines/eda.html#bin.eda.calculate_metrics">[docs]</a>
-<span class="k">def</span> <span class="nf">calculate_metrics</span><span class="p">(</span><span class="n">G</span><span class="p">:</span> <span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">float</span><span class="p">]:</span>
-<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Calculate graph metrics.</span>
-
-<span class="sd">    Args:</span>
-<span class="sd">        G (nx.Graph):</span>
-<span class="sd">            The graph.</span>
-<span class="sd">        output_dir (str):</span>
-<span class="sd">            The output directory for the visualisation.</span>
-
-<span class="sd">    Returns:</span>
-<span class="sd">        dict[float]:</span>
-<span class="sd">            The dictionary of metrics.</span>
-<span class="sd">    &quot;&quot;&quot;</span>
-    <span class="n">metrics</span> <span class="o">=</span> <span class="p">{}</span>
-    <span class="k">for</span> <span class="n">metric_func</span> <span class="ow">in</span> <span class="p">[</span>
-        <span class="n">nx</span><span class="o">.</span><span class="n">diameter</span><span class="p">,</span>
-        <span class="n">nx</span><span class="o">.</span><span class="n">radius</span><span class="p">,</span>
-        <span class="n">nx</span><span class="o">.</span><span class="n">average_clustering</span><span class="p">,</span>
-        <span class="n">nx</span><span class="o">.</span><span class="n">node_connectivity</span><span class="p">,</span>
-        <span class="n">nx</span><span class="o">.</span><span class="n">degree_assortativity_coefficient</span><span class="p">,</span>
-        <span class="n">nx</span><span class="o">.</span><span class="n">degree_pearson_correlation_coefficient</span><span class="p">,</span>
-    <span class="p">]:</span>
-        <span class="n">metrics</span><span class="p">[</span><span class="n">metric_func</span><span class="o">.</span><span class="vm">__name__</span><span class="p">]</span> <span class="o">=</span> <span class="n">metric_func</span><span class="p">(</span><span class="n">G</span><span class="p">)</span>
-
-    <span class="n">outfile</span> <span class="o">=</span> <span class="n">join_path</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="s2">&quot;metrics.csv&quot;</span><span class="p">)</span>
-    <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span><span class="n">metrics</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="p">[</span><span class="mi">0</span><span class="p">])</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">outfile</span><span class="p">,</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
-    <span class="k">return</span> <span class="n">metrics</span></div>
+    <span class="n">nodes</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">G</span><span class="o">.</span><span class="n">nodes</span><span class="p">)</span>
+    <span class="n">filtered_feature_matrix</span> <span class="o">=</span> <span class="n">feature_matrix</span><span class="p">[</span><span class="n">nodes</span><span class="p">]</span>
+    <span class="n">filtered_edge_list</span> <span class="o">=</span> <span class="n">nx</span><span class="o">.</span><span class="n">to_pandas_edgelist</span><span class="p">(</span><span class="n">G</span><span class="p">,</span> <span class="n">source</span><span class="o">=</span><span class="n">from_col</span><span class="p">,</span> <span class="n">target</span><span class="o">=</span><span class="n">to_col</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">filtered_feature_matrix</span><span class="p">,</span> <span class="n">filtered_edge_list</span></div>
 
 
 
 <div class="viewcode-block" id="log_results">
-<a class="viewcode-back" href="../../pipelines/eda.html#bin.eda.log_results">[docs]</a>
+<a class="viewcode-back" href="../../pipelines/process.html#bin.process.log_results">[docs]</a>
 <span class="k">def</span> <span class="nf">log_results</span><span class="p">(</span>
     <span class="n">tracking_uri</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">experiment_prefix</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
     <span class="n">grn_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="n">edge_list_file</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="n">network_plot</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
-    <span class="n">metrics</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">float</span><span class="p">],</span>
+    <span class="n">feature_matrix</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
+    <span class="n">edge_list</span><span class="p">:</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">,</span>
 <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Log experiment results to the experiment tracker.</span>
@@ -184,18 +123,16 @@
 <span class="sd">            The experiment name prefix.</span>
 <span class="sd">        grn_name (str):</span>
 <span class="sd">            The name of the GRN.</span>
-<span class="sd">        edge_list_file (str):</span>
-<span class="sd">            The name of the edge list file.</span>
-<span class="sd">        network_plot (str):</span>
-<span class="sd">            The path to the network plot to add as an artifact.</span>
-<span class="sd">        metrics (dict[float]):</span>
-<span class="sd">            The dictionary of metrics.</span>
+<span class="sd">        feature_matrix (pd.DataFrame):</span>
+<span class="sd">            The feature matrix.</span>
+<span class="sd">        edge_list (pd.DataFrame):</span>
+<span class="sd">            The edge list.</span>
 <span class="sd">    &quot;&quot;&quot;</span>
     <span class="kn">import</span> <span class="nn">mlflow</span>
 
     <span class="n">mlflow</span><span class="o">.</span><span class="n">set_tracking_uri</span><span class="p">(</span><span class="n">tracking_uri</span><span class="p">)</span>
 
-    <span class="n">experiment_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">experiment_prefix</span><span class="si">}</span><span class="s2">_eda&quot;</span>
+    <span class="n">experiment_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">experiment_prefix</span><span class="si">}</span><span class="s2">_process&quot;</span>
     <span class="n">existing_exp</span> <span class="o">=</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">get_experiment_by_name</span><span class="p">(</span><span class="n">experiment_name</span><span class="p">)</span>
     <span class="k">if</span> <span class="ow">not</span> <span class="n">existing_exp</span><span class="p">:</span>
         <span class="n">mlflow</span><span class="o">.</span><span class="n">create_experiment</span><span class="p">(</span><span class="n">experiment_name</span><span class="p">)</span>
@@ -204,12 +141,10 @@
     <span class="n">mlflow</span><span class="o">.</span><span class="n">set_tag</span><span class="p">(</span><span class="s2">&quot;grn&quot;</span><span class="p">,</span> <span class="n">grn_name</span><span class="p">)</span>
 
     <span class="n">mlflow</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span><span class="s2">&quot;grn&quot;</span><span class="p">,</span> <span class="n">grn_name</span><span class="p">)</span>
-    <span class="n">mlflow</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span><span class="s2">&quot;edge_list_file_name&quot;</span><span class="p">,</span> <span class="n">edge_list_file</span><span class="p">)</span>
 
-    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">metrics</span><span class="p">:</span>
-        <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">metrics</span><span class="p">[</span><span class="n">k</span><span class="p">])</span>
-
-    <span class="n">mlflow</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span><span class="n">network_plot</span><span class="p">)</span>
+    <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span><span class="s2">&quot;num_features&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">feature_matrix</span><span class="o">.</span><span class="n">index</span><span class="p">))</span>
+    <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span><span class="s2">&quot;num_nodes&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">feature_matrix</span><span class="o">.</span><span class="n">columns</span><span class="p">))</span>
+    <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span><span class="s2">&quot;num_edges&quot;</span><span class="p">,</span> <span class="nb">len</span><span class="p">(</span><span class="n">edge_list</span><span class="o">.</span><span class="n">index</span><span class="p">))</span>
 
     <span class="n">mlflow</span><span class="o">.</span><span class="n">end_run</span><span class="p">()</span></div>
 
@@ -221,7 +156,7 @@
 
 
 <div class="viewcode-block" id="main">
-<a class="viewcode-back" href="../../pipelines/eda.html#bin.eda.main">[docs]</a>
+<a class="viewcode-back" href="../../pipelines/process.html#bin.process.main">[docs]</a>
 <span class="nd">@hydra</span><span class="o">.</span><span class="n">main</span><span class="p">(</span><span class="n">version_base</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">config_path</span><span class="o">=</span><span class="s2">&quot;../conf&quot;</span><span class="p">,</span> <span class="n">config_name</span><span class="o">=</span><span class="s2">&quot;config&quot;</span><span class="p">)</span>
 <span class="k">def</span> <span class="nf">main</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">DictConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
@@ -236,9 +171,11 @@
 
     <span class="n">DATA_DIR</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;dir&quot;</span><span class="p">][</span><span class="s2">&quot;data_dir&quot;</span><span class="p">]</span>
     <span class="n">PREPROCESS_DIR</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;dir&quot;</span><span class="p">][</span><span class="s2">&quot;preprocessed_dir&quot;</span><span class="p">]</span>
+    <span class="n">PROCESS_DIR</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;dir&quot;</span><span class="p">][</span><span class="s2">&quot;processed_dir&quot;</span><span class="p">]</span>
     <span class="n">OUT_DIR</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;dir&quot;</span><span class="p">][</span><span class="s2">&quot;out_dir&quot;</span><span class="p">]</span>
 
     <span class="n">GRN_NAME</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;grn&quot;</span><span class="p">][</span><span class="s2">&quot;input_dir&quot;</span><span class="p">]</span>
+    <span class="n">FEATURE_MATRIX_FILE</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;grn&quot;</span><span class="p">][</span><span class="s2">&quot;feature_matrix&quot;</span><span class="p">]</span>
     <span class="n">EDGE_LIST_FILE</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;grn&quot;</span><span class="p">][</span><span class="s2">&quot;edge_list&quot;</span><span class="p">]</span>
     <span class="n">FROM_COL</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;grn&quot;</span><span class="p">][</span><span class="s2">&quot;from_col&quot;</span><span class="p">]</span>
     <span class="n">TO_COL</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;grn&quot;</span><span class="p">][</span><span class="s2">&quot;to_col&quot;</span><span class="p">]</span>
@@ -247,24 +184,26 @@
     <span class="n">ENABLE_TRACKING</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;experiment_tracking&quot;</span><span class="p">][</span><span class="s2">&quot;enabled&quot;</span><span class="p">]</span>
 
     <span class="n">input_dir</span> <span class="o">=</span> <span class="n">join_path</span><span class="p">(</span><span class="n">DATA_DIR</span><span class="p">,</span> <span class="n">PREPROCESS_DIR</span><span class="p">,</span> <span class="n">GRN_NAME</span><span class="p">)</span>
+    <span class="n">feature_matrix</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">join_path</span><span class="p">(</span><span class="n">input_dir</span><span class="p">,</span> <span class="n">FEATURE_MATRIX_FILE</span><span class="p">))</span>
     <span class="n">edge_list</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">read_csv</span><span class="p">(</span><span class="n">join_path</span><span class="p">(</span><span class="n">input_dir</span><span class="p">,</span> <span class="n">EDGE_LIST_FILE</span><span class="p">))</span>
 
-    <span class="n">G</span> <span class="o">=</span> <span class="n">construct_network</span><span class="p">(</span><span class="n">edge_list</span><span class="p">,</span> <span class="n">FROM_COL</span><span class="p">,</span> <span class="n">TO_COL</span><span class="p">)</span>
+    <span class="n">filtered_feature_matrix</span><span class="p">,</span> <span class="n">filtered_edge_list</span> <span class="o">=</span> <span class="n">process_network</span><span class="p">(</span>
+        <span class="n">feature_matrix</span><span class="p">,</span> <span class="n">edge_list</span><span class="p">,</span> <span class="n">FROM_COL</span><span class="p">,</span> <span class="n">TO_COL</span>
+    <span class="p">)</span>
 
-    <span class="n">output_dir</span> <span class="o">=</span> <span class="n">join_path</span><span class="p">(</span><span class="n">DATA_DIR</span><span class="p">,</span> <span class="n">OUT_DIR</span><span class="p">,</span> <span class="n">GRN_NAME</span><span class="p">,</span> <span class="s2">&quot;eda&quot;</span><span class="p">)</span>
+    <span class="n">output_dir</span> <span class="o">=</span> <span class="n">join_path</span><span class="p">(</span><span class="n">DATA_DIR</span><span class="p">,</span> <span class="n">OUT_DIR</span><span class="p">,</span> <span class="n">GRN_NAME</span><span class="p">,</span> <span class="n">PROCESS_DIR</span><span class="p">)</span>
     <span class="n">Path</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
 
-    <span class="n">network_plot</span> <span class="o">=</span> <span class="n">visualize_graph</span><span class="p">(</span><span class="n">G</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">)</span>
-    <span class="n">metrics</span> <span class="o">=</span> <span class="n">calculate_metrics</span><span class="p">(</span><span class="n">G</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">)</span>
+    <span class="n">filtered_feature_matrix</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">join_path</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">FEATURE_MATRIX_FILE</span><span class="p">))</span>
+    <span class="n">filtered_edge_list</span><span class="o">.</span><span class="n">to_csv</span><span class="p">(</span><span class="n">join_path</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="n">EDGE_LIST_FILE</span><span class="p">),</span> <span class="n">index</span><span class="o">=</span><span class="kc">False</span><span class="p">)</span>
 
     <span class="k">if</span> <span class="n">ENABLE_TRACKING</span><span class="p">:</span>
         <span class="n">log_results</span><span class="p">(</span>
             <span class="n">TRACKING_URI</span><span class="p">,</span>
             <span class="n">EXPERIMENT_PREFIX</span><span class="p">,</span>
             <span class="n">GRN_NAME</span><span class="p">,</span>
-            <span class="n">EDGE_LIST_FILE</span><span class="p">,</span>
-            <span class="n">network_plot</span><span class="p">,</span>
-            <span class="n">metrics</span><span class="p">,</span>
+            <span class="n">filtered_feature_matrix</span><span class="p">,</span>
+            <span class="n">filtered_edge_list</span><span class="p">,</span>
         <span class="p">)</span></div>
 
 
@@ -304,7 +243,7 @@
              >modules</a> |</li>
         <li class="nav-item nav-item-0"><a href="../../index.html">Nextflow Graph Machine Learning  documentation</a> &#187;</li>
           <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
-        <li class="nav-item nav-item-this"><a href="">bin.eda</a></li> 
+        <li class="nav-item nav-item-this"><a href="">bin.process</a></li> 
       </ul>
     </div>
     <div class="footer" role="contentinfo">

@@ -6,3 +6,5 @@ Nextflow Graph Machine Learning Pipelines
    :caption: Contents:
 
    eda.rst
+   process.rst
+   to_db.rst
