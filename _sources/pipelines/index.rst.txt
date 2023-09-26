@@ -9,3 +9,4 @@ Nextflow Graph Machine Learning Pipelines
    process.rst
    to_db.rst
    train_gnn.rst
+   train_vae_gnn.rst

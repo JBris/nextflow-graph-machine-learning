@@ -1,0 +1,613 @@
+
+
+<!doctype html>
+
+<html lang="en" data-content_root="../../">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>bin.train_vae_gnn &#8212; Nextflow Graph Machine Learning  documentation</title>
+    <link rel="stylesheet" type="text/css" href="../../_static/pygments.css?v=649a27d8" />
+    <link rel="stylesheet" type="text/css" href="../../_static/bizstyle.css?v=532c1bf3" />
+    
+    <script src="../../_static/documentation_options.js?v=5929fcd5"></script>
+    <script src="../../_static/doctools.js?v=888ff710"></script>
+    <script src="../../_static/sphinx_highlight.js?v=dc90522c"></script>
+    <script src="../../_static/bizstyle.js"></script>
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" />
+    <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+    <!--[if lt IE 9]>
+    <script src="_static/css3-mediaqueries.js"></script>
+    <![endif]-->
+  </head><body>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">Nextflow Graph Machine Learning  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" accesskey="U">Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">bin.train_vae_gnn</a></li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body" role="main">
+            
+  <h1>Source code for bin.train_vae_gnn</h1><div class="highlight"><pre>
+<span></span><span class="ch">#!/usr/bin/env python</span>
+
+<span class="c1">######################################</span>
+<span class="c1"># Imports</span>
+<span class="c1">######################################</span>
+
+<span class="kn">from</span> <span class="nn">adbnx_adapter</span> <span class="kn">import</span> <span class="n">ADBNX_Adapter</span>
+<span class="kn">from</span> <span class="nn">arango</span> <span class="kn">import</span> <span class="n">ArangoClient</span>
+<span class="kn">import</span> <span class="nn">hydra</span>
+<span class="kn">import</span> <span class="nn">matplotlib.pyplot</span> <span class="k">as</span> <span class="nn">plt</span>
+<span class="kn">import</span> <span class="nn">mlflow</span>
+<span class="kn">import</span> <span class="nn">networkx</span> <span class="k">as</span> <span class="nn">nx</span>
+<span class="kn">from</span> <span class="nn">omegaconf</span> <span class="kn">import</span> <span class="n">DictConfig</span>
+<span class="kn">from</span> <span class="nn">os.path</span> <span class="kn">import</span> <span class="n">join</span> <span class="k">as</span> <span class="n">join_path</span>
+<span class="kn">import</span> <span class="nn">pandas</span> <span class="k">as</span> <span class="nn">pd</span>
+<span class="kn">from</span> <span class="nn">pathlib</span> <span class="kn">import</span> <span class="n">Path</span>
+<span class="kn">import</span> <span class="nn">torch</span>
+<span class="kn">from</span> <span class="nn">sklearn.decomposition</span> <span class="kn">import</span> <span class="n">PCA</span>
+<span class="kn">import</span> <span class="nn">torch.nn</span> <span class="k">as</span> <span class="nn">nn</span>
+<span class="kn">import</span> <span class="nn">torch.nn.functional</span> <span class="k">as</span> <span class="nn">F</span>
+<span class="kn">from</span> <span class="nn">torch_geometric.utils</span> <span class="kn">import</span> <span class="n">from_networkx</span>
+<span class="kn">import</span> <span class="nn">torch_geometric.transforms</span> <span class="k">as</span> <span class="nn">T</span>
+<span class="kn">from</span> <span class="nn">torch_geometric.nn</span> <span class="kn">import</span> <span class="n">SAGEConv</span><span class="p">,</span> <span class="n">VGAE</span>
+
+<span class="c1">######################################</span>
+<span class="c1"># Classes</span>
+<span class="c1">######################################</span>
+
+
+<div class="viewcode-block" id="VariationalGCNEncoder">
+<a class="viewcode-back" href="../../pipelines/train_vae_gnn.html#bin.train_vae_gnn.VariationalGCNEncoder">[docs]</a>
+<span class="k">class</span> <span class="nc">VariationalGCNEncoder</span><span class="p">(</span><span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">):</span>
+    <span class="k">def</span> <span class="fm">__init__</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span>
+        <span class="n">in_channels</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">hidden_channels</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">out_channels</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+        <span class="n">n_layers</span><span class="p">:</span> <span class="nb">int</span> <span class="o">=</span> <span class="mi">2</span><span class="p">,</span>
+        <span class="n">normalize</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">False</span><span class="p">,</span>
+        <span class="n">bias</span><span class="p">:</span> <span class="nb">bool</span> <span class="o">=</span> <span class="kc">True</span><span class="p">,</span>
+        <span class="n">aggr</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;mean&quot;</span><span class="p">,</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        SAGENet constructor.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            in_channels (int):</span>
+<span class="sd">                The number of input channels.</span>
+<span class="sd">            hidden_channels (int):</span>
+<span class="sd">                The number of hidden channels.</span>
+<span class="sd">            out_channels (int):</span>
+<span class="sd">                The number of output channels.</span>
+<span class="sd">            n_layers (int, optional):</span>
+<span class="sd">                The number of SAGE convolutional layers. Defaults to 5.</span>
+<span class="sd">            normalize (bool, optional):</span>
+<span class="sd">                Whether to apply normalisation. Defaults to False.</span>
+<span class="sd">            bias (bool, optional):</span>
+<span class="sd">                Whether to include the bias term. Defaults to True.</span>
+<span class="sd">            aggr (str, optional):</span>
+<span class="sd">                The tensor aggregation type. Defaults to &quot;mean&quot;.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="fm">__init__</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">layers</span> <span class="o">=</span> <span class="n">nn</span><span class="o">.</span><span class="n">ModuleList</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">conv1</span> <span class="o">=</span> <span class="n">SAGEConv</span><span class="p">(</span>
+            <span class="n">in_channels</span><span class="p">,</span> <span class="n">hidden_channels</span><span class="p">,</span> <span class="n">normalize</span><span class="o">=</span><span class="n">normalize</span><span class="p">,</span> <span class="n">aggr</span><span class="o">=</span><span class="n">aggr</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">conv2</span> <span class="o">=</span> <span class="n">SAGEConv</span><span class="p">(</span>
+            <span class="n">hidden_channels</span><span class="p">,</span> <span class="mi">2</span> <span class="o">*</span> <span class="n">out_channels</span><span class="p">,</span> <span class="n">normalize</span><span class="o">=</span><span class="n">normalize</span><span class="p">,</span> <span class="n">aggr</span><span class="o">=</span><span class="n">aggr</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">conv_mu</span> <span class="o">=</span> <span class="n">SAGEConv</span><span class="p">(</span>
+            <span class="mi">2</span> <span class="o">*</span> <span class="n">out_channels</span><span class="p">,</span> <span class="n">out_channels</span><span class="p">,</span> <span class="n">normalize</span><span class="o">=</span><span class="n">normalize</span><span class="p">,</span> <span class="n">aggr</span><span class="o">=</span><span class="n">aggr</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">conv_logstd</span> <span class="o">=</span> <span class="n">SAGEConv</span><span class="p">(</span>
+            <span class="mi">2</span> <span class="o">*</span> <span class="n">out_channels</span><span class="p">,</span> <span class="n">out_channels</span><span class="p">,</span> <span class="n">normalize</span><span class="o">=</span><span class="n">normalize</span><span class="p">,</span> <span class="n">aggr</span><span class="o">=</span><span class="n">aggr</span><span class="p">,</span> <span class="n">bias</span><span class="o">=</span><span class="n">bias</span>
+        <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">conv1</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">_</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_layers</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">layers</span><span class="o">.</span><span class="n">append</span><span class="p">(</span>
+                <span class="n">SAGEConv</span><span class="p">(</span>
+                    <span class="n">hidden_channels</span><span class="p">,</span>
+                    <span class="n">hidden_channels</span><span class="p">,</span>
+                    <span class="n">normalize</span><span class="o">=</span><span class="n">normalize</span><span class="p">,</span>
+                    <span class="n">aggr</span><span class="o">=</span><span class="n">aggr</span><span class="p">,</span>
+                    <span class="n">bias</span><span class="o">=</span><span class="n">bias</span><span class="p">,</span>
+                <span class="p">)</span>
+            <span class="p">)</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">activation</span> <span class="o">=</span> <span class="n">F</span><span class="o">.</span><span class="n">leaky_relu</span>
+
+<div class="viewcode-block" id="VariationalGCNEncoder.forward">
+<a class="viewcode-back" href="../../pipelines/train_vae_gnn.html#bin.train_vae_gnn.VariationalGCNEncoder.forward">[docs]</a>
+    <span class="k">def</span> <span class="nf">forward</span><span class="p">(</span>
+        <span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">edge_index</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span>
+    <span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">,</span> <span class="n">torch</span><span class="o">.</span><span class="n">Tensor</span><span class="p">]:</span>
+<span class="w">        </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        The forward pass.</span>
+
+<span class="sd">        Args:</span>
+<span class="sd">            x (torch.Tensor):</span>
+<span class="sd">                Input data.</span>
+<span class="sd">            edge_index (torch.Tensor):</span>
+<span class="sd">                The graph edge index.</span>
+
+<span class="sd">        Returns:</span>
+<span class="sd">            tuple[torch.Tensor, torch.Tensor]:</span>
+<span class="sd">                The convolutional mean and log-standard deviation.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">layer</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">layers</span><span class="p">:</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="n">layer</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">edge_index</span><span class="p">)</span>
+            <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">activation</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+        <span class="n">x</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">conv2</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">edge_index</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">conv_mu</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">edge_index</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">conv_logstd</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">edge_index</span><span class="p">)</span></div>
+</div>
+
+
+
+<span class="c1">######################################</span>
+<span class="c1"># Functions</span>
+<span class="c1">######################################</span>
+
+
+<div class="viewcode-block" id="log_results">
+<a class="viewcode-back" href="../../pipelines/train_vae_gnn.html#bin.train_vae_gnn.log_results">[docs]</a>
+<span class="k">def</span> <span class="nf">log_results</span><span class="p">(</span>
+    <span class="n">tracking_uri</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">experiment_prefix</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">grn_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">in_channels</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">config</span><span class="p">:</span> <span class="n">DictConfig</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Log experiment results to the experiment tracker.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        tracking_uri (str):</span>
+<span class="sd">            The tracking URI.</span>
+<span class="sd">        experiment_prefix (str):</span>
+<span class="sd">            The experiment name prefix.</span>
+<span class="sd">        grn_name (str):</span>
+<span class="sd">            The name of the GRN.</span>
+<span class="sd">        in_channels (int):</span>
+<span class="sd">            The number of input channels.</span>
+<span class="sd">        config (DictConfig):</span>
+<span class="sd">            The pipeline configuration.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">mlflow</span><span class="o">.</span><span class="n">set_tracking_uri</span><span class="p">(</span><span class="n">tracking_uri</span><span class="p">)</span>
+    <span class="n">experiment_name</span> <span class="o">=</span> <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">experiment_prefix</span><span class="si">}</span><span class="s2">_train_vae_gnn&quot;</span>
+    <span class="n">existing_exp</span> <span class="o">=</span> <span class="n">mlflow</span><span class="o">.</span><span class="n">get_experiment_by_name</span><span class="p">(</span><span class="n">experiment_name</span><span class="p">)</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">existing_exp</span><span class="p">:</span>
+        <span class="n">mlflow</span><span class="o">.</span><span class="n">create_experiment</span><span class="p">(</span><span class="n">experiment_name</span><span class="p">)</span>
+    <span class="n">mlflow</span><span class="o">.</span><span class="n">set_experiment</span><span class="p">(</span><span class="n">experiment_name</span><span class="p">)</span>
+
+    <span class="n">mlflow</span><span class="o">.</span><span class="n">set_tag</span><span class="p">(</span><span class="s2">&quot;grn&quot;</span><span class="p">,</span> <span class="n">grn_name</span><span class="p">)</span>
+    <span class="n">mlflow</span><span class="o">.</span><span class="n">set_tag</span><span class="p">(</span><span class="s2">&quot;gnn&quot;</span><span class="p">,</span> <span class="s2">&quot;VAE&quot;</span><span class="p">)</span>
+
+    <span class="n">mlflow</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span><span class="s2">&quot;grn&quot;</span><span class="p">,</span> <span class="n">grn_name</span><span class="p">)</span>
+    <span class="n">mlflow</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span><span class="s2">&quot;in_channels&quot;</span><span class="p">,</span> <span class="n">in_channels</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">k</span> <span class="ow">in</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;gnn&quot;</span><span class="p">]:</span>
+        <span class="n">mlflow</span><span class="o">.</span><span class="n">log_param</span><span class="p">(</span><span class="n">k</span><span class="p">,</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;gnn&quot;</span><span class="p">][</span><span class="n">k</span><span class="p">])</span></div>
+
+
+
+<div class="viewcode-block" id="get_graph">
+<a class="viewcode-back" href="../../pipelines/train_vae_gnn.html#bin.train_vae_gnn.get_graph">[docs]</a>
+<span class="k">def</span> <span class="nf">get_graph</span><span class="p">(</span>
+    <span class="n">db_host</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">db_name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">db_username</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">db_password</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">collection</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+    <span class="n">feature_k</span><span class="p">:</span> <span class="nb">str</span> <span class="o">=</span> <span class="s2">&quot;expression&quot;</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Retrieve the graph from the database.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        db_host (str):</span>
+<span class="sd">            The database host.</span>
+<span class="sd">        db_name (str):</span>
+<span class="sd">            The database name.</span>
+<span class="sd">        db_username (str):</span>
+<span class="sd">            The database username.</span>
+<span class="sd">        db_password (str):</span>
+<span class="sd">            The database password.</span>
+<span class="sd">        collection (str):</span>
+<span class="sd">            The database collection.</span>
+<span class="sd">        feature_k (str):</span>
+<span class="sd">            The dictionary key for node features.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        nx.Graph:</span>
+<span class="sd">            The retrieved graph.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">db</span> <span class="o">=</span> <span class="n">ArangoClient</span><span class="p">(</span><span class="n">hosts</span><span class="o">=</span><span class="n">db_host</span><span class="p">)</span><span class="o">.</span><span class="n">db</span><span class="p">(</span>
+        <span class="n">db_name</span><span class="p">,</span> <span class="n">username</span><span class="o">=</span><span class="n">db_username</span><span class="p">,</span> <span class="n">password</span><span class="o">=</span><span class="n">db_password</span>
+    <span class="p">)</span>
+    <span class="n">adapter</span> <span class="o">=</span> <span class="n">ADBNX_Adapter</span><span class="p">(</span><span class="n">db</span><span class="p">)</span>
+    <span class="n">db_G</span> <span class="o">=</span> <span class="n">adapter</span><span class="o">.</span><span class="n">arangodb_graph_to_networkx</span><span class="p">(</span><span class="n">collection</span><span class="p">)</span>
+    <span class="n">db_G</span> <span class="o">=</span> <span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">(</span><span class="n">db_G</span><span class="p">)</span>
+    <span class="n">db_G</span> <span class="o">=</span> <span class="n">nx</span><span class="o">.</span><span class="n">convert_node_labels_to_integers</span><span class="p">(</span><span class="n">db_G</span><span class="p">)</span>
+
+    <span class="n">G</span> <span class="o">=</span> <span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">()</span>
+    <span class="n">G</span><span class="o">.</span><span class="n">add_edges_from</span><span class="p">(</span><span class="n">db_G</span><span class="o">.</span><span class="n">edges</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">node_id</span><span class="p">,</span> <span class="n">node_features</span> <span class="ow">in</span> <span class="nb">list</span><span class="p">(</span><span class="n">db_G</span><span class="o">.</span><span class="n">nodes</span><span class="p">(</span><span class="n">data</span><span class="o">=</span><span class="kc">True</span><span class="p">)):</span>
+        <span class="n">features</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">node_features</span><span class="p">[</span><span class="n">feature_k</span><span class="p">]</span><span class="o">.</span><span class="n">values</span><span class="p">())</span>
+        <span class="n">G</span><span class="o">.</span><span class="n">nodes</span><span class="p">[</span><span class="n">node_id</span><span class="p">][</span><span class="n">feature_k</span><span class="p">]</span> <span class="o">=</span> <span class="n">features</span>
+
+    <span class="k">return</span> <span class="n">G</span></div>
+
+
+
+<div class="viewcode-block" id="get_split">
+<a class="viewcode-back" href="../../pipelines/train_vae_gnn.html#bin.train_vae_gnn.get_split">[docs]</a>
+<span class="k">def</span> <span class="nf">get_split</span><span class="p">(</span>
+    <span class="n">G</span><span class="p">:</span> <span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">,</span> <span class="n">num_val</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">num_test</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span> <span class="n">device</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">[</span><span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">,</span> <span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">,</span> <span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">]:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get train-validation-test split.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        G (nx.Graph):</span>
+<span class="sd">            The graph.</span>
+<span class="sd">        num_val (float):</span>
+<span class="sd">            The proportion of validation data.</span>
+<span class="sd">        num_test (float):</span>
+<span class="sd">            The proportion of testing data.</span>
+<span class="sd">        device (torch.device):</span>
+<span class="sd">            The training device.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        tuple[nx.Graph, nx.Graph, nx.Graph]:</span>
+<span class="sd">            The train-validation-test split.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">transform</span> <span class="o">=</span> <span class="n">T</span><span class="o">.</span><span class="n">Compose</span><span class="p">(</span>
+        <span class="p">[</span>
+            <span class="n">T</span><span class="o">.</span><span class="n">NormalizeFeatures</span><span class="p">(),</span>
+            <span class="n">T</span><span class="o">.</span><span class="n">ToDevice</span><span class="p">(</span><span class="n">device</span><span class="p">),</span>
+            <span class="n">T</span><span class="o">.</span><span class="n">RandomLinkSplit</span><span class="p">(</span>
+                <span class="n">num_val</span><span class="o">=</span><span class="n">num_val</span><span class="p">,</span>
+                <span class="n">num_test</span><span class="o">=</span><span class="n">num_test</span><span class="p">,</span>
+                <span class="n">is_undirected</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+                <span class="n">add_negative_train_samples</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
+                <span class="n">split_labels</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+            <span class="p">),</span>
+        <span class="p">]</span>
+    <span class="p">)</span>
+
+    <span class="n">train_data</span><span class="p">,</span> <span class="n">val_data</span><span class="p">,</span> <span class="n">test_data</span> <span class="o">=</span> <span class="n">transform</span><span class="p">(</span><span class="n">G</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">train_data</span><span class="p">,</span> <span class="n">val_data</span><span class="p">,</span> <span class="n">test_data</span></div>
+
+
+
+<div class="viewcode-block" id="get_model_components">
+<a class="viewcode-back" href="../../pipelines/train_vae_gnn.html#bin.train_vae_gnn.get_model_components">[docs]</a>
+<span class="k">def</span> <span class="nf">get_model_components</span><span class="p">(</span>
+    <span class="n">lr</span><span class="p">:</span> <span class="nb">float</span><span class="p">,</span>
+    <span class="n">in_channels</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">hidden_channels</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">out_channels</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">device</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+    <span class="n">n_layers</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">normalize</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+    <span class="n">bias</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+    <span class="n">aggr</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">tuple</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get the components for training the model.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        lr (float):</span>
+<span class="sd">            The learning rate.</span>
+<span class="sd">        in_channels (int):</span>
+<span class="sd">            The number of input channels.</span>
+<span class="sd">        hidden_channels (int):</span>
+<span class="sd">            The number of hidden channels.</span>
+<span class="sd">        out_channels (int):</span>
+<span class="sd">            The number of output channels.</span>
+<span class="sd">        device (torch.device):</span>
+<span class="sd">            The training device.</span>
+<span class="sd">        n_layers (int):</span>
+<span class="sd">            The number of SAGE convolutional layers.</span>
+<span class="sd">        normalize (bool):</span>
+<span class="sd">            Whether to normalize the input tensors.</span>
+<span class="sd">        bias (bool):</span>
+<span class="sd">            Whether to include the bias term.</span>
+<span class="sd">        aggr (str):</span>
+<span class="sd">            The data aggregation method.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        tuple:</span>
+<span class="sd">            The components for training the model.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">model</span> <span class="o">=</span> <span class="n">VGAE</span><span class="p">(</span>
+        <span class="n">VariationalGCNEncoder</span><span class="p">(</span>
+            <span class="n">in_channels</span><span class="p">,</span>
+            <span class="n">hidden_channels</span><span class="p">,</span>
+            <span class="n">out_channels</span><span class="p">,</span>
+            <span class="n">n_layers</span><span class="p">,</span>
+            <span class="n">normalize</span><span class="p">,</span>
+            <span class="n">bias</span><span class="p">,</span>
+            <span class="n">aggr</span><span class="p">,</span>
+        <span class="p">)</span>
+    <span class="p">)</span><span class="o">.</span><span class="n">to</span><span class="p">(</span><span class="n">device</span><span class="p">)</span>
+    <span class="n">optimizer</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">Adam</span><span class="p">(</span><span class="n">params</span><span class="o">=</span><span class="n">model</span><span class="o">.</span><span class="n">parameters</span><span class="p">(),</span> <span class="n">lr</span><span class="o">=</span><span class="n">lr</span><span class="p">)</span>
+    <span class="n">scheduler</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">optim</span><span class="o">.</span><span class="n">lr_scheduler</span><span class="o">.</span><span class="n">ReduceLROnPlateau</span><span class="p">(</span>
+        <span class="n">optimizer</span><span class="p">,</span> <span class="s2">&quot;max&quot;</span><span class="p">,</span> <span class="n">factor</span><span class="o">=</span><span class="mf">0.05</span>
+    <span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">model</span><span class="p">,</span> <span class="n">optimizer</span><span class="p">,</span> <span class="n">scheduler</span></div>
+
+
+
+<div class="viewcode-block" id="train_model">
+<a class="viewcode-back" href="../../pipelines/train_vae_gnn.html#bin.train_vae_gnn.train_model">[docs]</a>
+<span class="k">def</span> <span class="nf">train_model</span><span class="p">(</span>
+    <span class="n">model</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
+    <span class="n">train_data</span><span class="p">:</span> <span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">,</span>
+    <span class="n">val_data</span><span class="p">:</span> <span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">,</span>
+    <span class="n">test_data</span><span class="p">:</span> <span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">,</span>
+    <span class="n">n_epochs</span><span class="p">:</span> <span class="nb">int</span><span class="p">,</span>
+    <span class="n">optimizer</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span>
+    <span class="n">device</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">,</span>
+    <span class="n">enable_tracking</span><span class="p">:</span> <span class="nb">bool</span><span class="p">,</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">float</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Train the graph neural network.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model (torch.nn.Module):</span>
+<span class="sd">            The graph neural network.</span>
+<span class="sd">        train_data (nx.Graph):</span>
+<span class="sd">            The training data.</span>
+<span class="sd">        val_data (nx.Graph):</span>
+<span class="sd">            The validation data.</span>
+<span class="sd">        test_data (nx.Graph):</span>
+<span class="sd">            The testing data.</span>
+<span class="sd">        n_epochs (int):</span>
+<span class="sd">            The number of epochs.</span>
+<span class="sd">        optimizer (torch.nn.Module):</span>
+<span class="sd">            The model optimiser.</span>
+<span class="sd">        device (torch.device):</span>
+<span class="sd">            The training device.</span>
+<span class="sd">        enable_tracking (bool):</span>
+<span class="sd">            Whether to enable experiment tracking.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        float:</span>
+<span class="sd">            The final area-under-curve score.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">train</span><span class="p">():</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">train</span><span class="p">()</span>
+        <span class="n">optimizer</span><span class="o">.</span><span class="n">zero_grad</span><span class="p">()</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">train_data</span><span class="o">.</span><span class="n">expression</span><span class="p">,</span> <span class="n">train_data</span><span class="o">.</span><span class="n">edge_index</span><span class="p">)</span>
+        <span class="n">loss</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">recon_loss</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">train_data</span><span class="o">.</span><span class="n">pos_edge_label_index</span><span class="p">)</span>
+        <span class="n">loss</span> <span class="o">=</span> <span class="n">loss</span> <span class="o">+</span> <span class="p">(</span><span class="mi">1</span> <span class="o">/</span> <span class="n">train_data</span><span class="o">.</span><span class="n">num_nodes</span><span class="p">)</span> <span class="o">*</span> <span class="n">model</span><span class="o">.</span><span class="n">kl_loss</span><span class="p">()</span>
+        <span class="n">loss</span><span class="o">.</span><span class="n">backward</span><span class="p">()</span>
+        <span class="n">optimizer</span><span class="o">.</span><span class="n">step</span><span class="p">()</span>
+        <span class="k">return</span> <span class="nb">float</span><span class="p">(</span><span class="n">loss</span><span class="p">)</span>
+
+    <span class="nd">@torch</span><span class="o">.</span><span class="n">no_grad</span><span class="p">()</span>
+    <span class="k">def</span> <span class="nf">test</span><span class="p">(</span><span class="n">data</span><span class="p">):</span>
+        <span class="n">model</span><span class="o">.</span><span class="n">eval</span><span class="p">()</span>
+        <span class="n">z</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">expression</span><span class="p">,</span> <span class="n">data</span><span class="o">.</span><span class="n">edge_index</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">model</span><span class="o">.</span><span class="n">test</span><span class="p">(</span><span class="n">z</span><span class="p">,</span> <span class="n">data</span><span class="o">.</span><span class="n">pos_edge_label_index</span><span class="p">,</span> <span class="n">data</span><span class="o">.</span><span class="n">neg_edge_label_index</span><span class="p">)</span>
+
+    <span class="k">for</span> <span class="n">epoch</span> <span class="ow">in</span> <span class="nb">range</span><span class="p">(</span><span class="n">n_epochs</span><span class="p">):</span>
+        <span class="n">loss</span> <span class="o">=</span> <span class="n">train</span><span class="p">()</span>
+        <span class="n">val_auc</span><span class="p">,</span> <span class="n">val_ap</span> <span class="o">=</span> <span class="n">test</span><span class="p">(</span><span class="n">val_data</span><span class="p">)</span>
+        <span class="n">test_auc</span><span class="p">,</span> <span class="n">test_ap</span> <span class="o">=</span> <span class="n">test</span><span class="p">(</span><span class="n">test_data</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">epoch</span> <span class="o">%</span> <span class="nb">int</span><span class="p">(</span><span class="n">n_epochs</span> <span class="o">*</span> <span class="mf">0.05</span><span class="p">)</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">enable_tracking</span><span class="p">:</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span><span class="s2">&quot;train_loss&quot;</span><span class="p">,</span> <span class="n">loss</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="n">epoch</span><span class="p">)</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span><span class="s2">&quot;val_auc&quot;</span><span class="p">,</span> <span class="n">val_auc</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="n">epoch</span><span class="p">)</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span><span class="s2">&quot;val_ap&quot;</span><span class="p">,</span> <span class="n">val_ap</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="n">epoch</span><span class="p">)</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span><span class="s2">&quot;test_auc&quot;</span><span class="p">,</span> <span class="n">test_auc</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="n">epoch</span><span class="p">)</span>
+                <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span><span class="s2">&quot;test_ap&quot;</span><span class="p">,</span> <span class="n">test_ap</span><span class="p">,</span> <span class="n">step</span><span class="o">=</span><span class="n">epoch</span><span class="p">)</span>
+
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">&quot;Epoch: </span><span class="si">{</span><span class="n">epoch</span><span class="si">:</span><span class="s2">03d</span><span class="si">}</span><span class="s2">, loss </span><span class="si">{</span><span class="n">loss</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">&quot;Val AUC: </span><span class="si">{</span><span class="n">val_auc</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">, Val AP: </span><span class="si">{</span><span class="n">val_ap</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+                <span class="sa">f</span><span class="s2">&quot;Test AUC: </span><span class="si">{</span><span class="n">test_auc</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">, Test AP: </span><span class="si">{</span><span class="n">test_ap</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">,</span>
+            <span class="p">)</span>
+
+    <span class="n">final_test_auc</span><span class="p">,</span> <span class="n">final_test_ap</span> <span class="o">=</span> <span class="n">test</span><span class="p">(</span><span class="n">test_data</span><span class="p">)</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Final Test AUC: </span><span class="si">{</span><span class="n">final_test_auc</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">, Final Test AP: </span><span class="si">{</span><span class="n">final_test_ap</span><span class="si">:</span><span class="s2">.4f</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">enable_tracking</span><span class="p">:</span>
+        <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span><span class="s2">&quot;final_test_auc&quot;</span><span class="p">,</span> <span class="n">final_test_auc</span><span class="p">)</span>
+        <span class="n">mlflow</span><span class="o">.</span><span class="n">log_metric</span><span class="p">(</span><span class="s2">&quot;final_test_ap&quot;</span><span class="p">,</span> <span class="n">final_test_ap</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">model</span></div>
+
+
+
+<div class="viewcode-block" id="view_embeddings">
+<a class="viewcode-back" href="../../pipelines/train_vae_gnn.html#bin.train_vae_gnn.view_embeddings">[docs]</a>
+<span class="k">def</span> <span class="nf">view_embeddings</span><span class="p">(</span>
+    <span class="n">model</span><span class="p">:</span> <span class="n">torch</span><span class="o">.</span><span class="n">nn</span><span class="o">.</span><span class="n">Module</span><span class="p">,</span> <span class="n">data</span><span class="p">:</span> <span class="n">nx</span><span class="o">.</span><span class="n">Graph</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">enable_tracking</span><span class="p">:</span> <span class="nb">bool</span>
+<span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    View the latent embeddings in 2D.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        model (torch.nn.Module):</span>
+<span class="sd">            The variational autoencoder.</span>
+<span class="sd">        data (nx.Graph):</span>
+<span class="sd">            The graph data.</span>
+<span class="sd">        output_dir (str):</span>
+<span class="sd">            The output directory for saving plots.</span>
+<span class="sd">        enable_tracking (bool):</span>
+<span class="sd">            Whether experiment tracking is enabled.</span>
+
+<span class="sd">    Returns:</span>
+<span class="sd">        str:</span>
+<span class="sd">            The saved visualisation.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">embeddings</span> <span class="o">=</span> <span class="n">model</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="n">data</span><span class="o">.</span><span class="n">expression</span><span class="p">,</span> <span class="n">data</span><span class="o">.</span><span class="n">edge_index</span><span class="p">)</span><span class="o">.</span><span class="n">detach</span><span class="p">()</span><span class="o">.</span><span class="n">cpu</span><span class="p">()</span><span class="o">.</span><span class="n">numpy</span><span class="p">()</span>
+    <span class="n">transformer</span> <span class="o">=</span> <span class="n">PCA</span><span class="p">(</span><span class="n">n_components</span><span class="o">=</span><span class="mi">2</span><span class="p">)</span>
+    <span class="n">emb_transformed</span> <span class="o">=</span> <span class="n">pd</span><span class="o">.</span><span class="n">DataFrame</span><span class="p">(</span>
+        <span class="n">transformer</span><span class="o">.</span><span class="n">fit_transform</span><span class="p">(</span><span class="n">embeddings</span><span class="p">),</span> <span class="n">columns</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">]</span>
+    <span class="p">)</span>
+    <span class="n">emb_transformed</span><span class="o">.</span><span class="n">plot</span><span class="o">.</span><span class="n">scatter</span><span class="p">(</span><span class="s2">&quot;x&quot;</span><span class="p">,</span> <span class="s2">&quot;y&quot;</span><span class="p">)</span>
+
+    <span class="n">Path</span><span class="p">(</span><span class="n">output_dir</span><span class="p">)</span><span class="o">.</span><span class="n">mkdir</span><span class="p">(</span><span class="n">parents</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">exist_ok</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+    <span class="n">outfile</span> <span class="o">=</span> <span class="n">join_path</span><span class="p">(</span><span class="n">output_dir</span><span class="p">,</span> <span class="s2">&quot;graph.png&quot;</span><span class="p">)</span>
+    <span class="n">plt</span><span class="o">.</span><span class="n">savefig</span><span class="p">(</span><span class="n">outfile</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">enable_tracking</span><span class="p">:</span>
+        <span class="n">mlflow</span><span class="o">.</span><span class="n">log_artifact</span><span class="p">(</span><span class="n">outfile</span><span class="p">)</span>
+
+    <span class="k">return</span> <span class="n">outfile</span></div>
+
+
+
+<span class="c1">######################################</span>
+<span class="c1"># Main</span>
+<span class="c1">######################################</span>
+
+
+<div class="viewcode-block" id="main">
+<a class="viewcode-back" href="../../pipelines/train_vae_gnn.html#bin.train_vae_gnn.main">[docs]</a>
+<span class="nd">@hydra</span><span class="o">.</span><span class="n">main</span><span class="p">(</span><span class="n">version_base</span><span class="o">=</span><span class="kc">None</span><span class="p">,</span> <span class="n">config_path</span><span class="o">=</span><span class="s2">&quot;../conf&quot;</span><span class="p">,</span> <span class="n">config_name</span><span class="o">=</span><span class="s2">&quot;config&quot;</span><span class="p">)</span>
+<span class="k">def</span> <span class="nf">main</span><span class="p">(</span><span class="n">config</span><span class="p">:</span> <span class="n">DictConfig</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    The main entry point for the plotting pipeline.</span>
+
+<span class="sd">    Args:</span>
+<span class="sd">        config (DictConfig):</span>
+<span class="sd">            The pipeline configuration.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">EXPERIMENT_PREFIX</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;experiment&quot;</span><span class="p">][</span><span class="s2">&quot;name&quot;</span><span class="p">]</span>
+
+    <span class="n">DATA_DIR</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;dir&quot;</span><span class="p">][</span><span class="s2">&quot;data_dir&quot;</span><span class="p">]</span>
+    <span class="n">OUT_DIR</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;dir&quot;</span><span class="p">][</span><span class="s2">&quot;out_dir&quot;</span><span class="p">]</span>
+
+    <span class="n">GRN_NAME</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;grn&quot;</span><span class="p">][</span><span class="s2">&quot;input_dir&quot;</span><span class="p">]</span>
+
+    <span class="n">DB_HOST</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;db&quot;</span><span class="p">][</span><span class="s2">&quot;host&quot;</span><span class="p">]</span>
+    <span class="n">DB_NAME</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;db&quot;</span><span class="p">][</span><span class="s2">&quot;name&quot;</span><span class="p">]</span>
+    <span class="n">DB_USERNAME</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;db&quot;</span><span class="p">][</span><span class="s2">&quot;username&quot;</span><span class="p">]</span>
+    <span class="n">DB_PASSWORD</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;db&quot;</span><span class="p">][</span><span class="s2">&quot;password&quot;</span><span class="p">]</span>
+
+    <span class="n">NUM_VAL</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;gnn&quot;</span><span class="p">][</span><span class="s2">&quot;num_val&quot;</span><span class="p">]</span>
+    <span class="n">NUM_TEST</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;gnn&quot;</span><span class="p">][</span><span class="s2">&quot;num_test&quot;</span><span class="p">]</span>
+    <span class="n">HIDDEN_CHANNELS</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;gnn&quot;</span><span class="p">][</span><span class="s2">&quot;hidden_channels&quot;</span><span class="p">]</span>
+    <span class="n">OUT_CHANNELS</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;gnn&quot;</span><span class="p">][</span><span class="s2">&quot;out_channels&quot;</span><span class="p">]</span>
+    <span class="n">LR</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;gnn&quot;</span><span class="p">][</span><span class="s2">&quot;lr&quot;</span><span class="p">]</span>
+    <span class="n">N_EPOCHS</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;gnn&quot;</span><span class="p">][</span><span class="s2">&quot;n_epochs&quot;</span><span class="p">]</span>
+    <span class="n">N_LAYERS</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;gnn&quot;</span><span class="p">][</span><span class="s2">&quot;n_layers&quot;</span><span class="p">]</span>
+    <span class="n">NORMALIZE</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;gnn&quot;</span><span class="p">][</span><span class="s2">&quot;normalize&quot;</span><span class="p">]</span>
+    <span class="n">BIAS</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;gnn&quot;</span><span class="p">][</span><span class="s2">&quot;bias&quot;</span><span class="p">]</span>
+    <span class="n">AGGR</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;gnn&quot;</span><span class="p">][</span><span class="s2">&quot;aggr&quot;</span><span class="p">]</span>
+
+    <span class="n">TRACKING_URI</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;experiment_tracking&quot;</span><span class="p">][</span><span class="s2">&quot;tracking_uri&quot;</span><span class="p">]</span>
+    <span class="n">ENABLE_TRACKING</span> <span class="o">=</span> <span class="n">config</span><span class="p">[</span><span class="s2">&quot;experiment_tracking&quot;</span><span class="p">][</span><span class="s2">&quot;enabled&quot;</span><span class="p">]</span>
+
+    <span class="n">G</span> <span class="o">=</span> <span class="n">get_graph</span><span class="p">(</span><span class="n">DB_HOST</span><span class="p">,</span> <span class="n">DB_NAME</span><span class="p">,</span> <span class="n">DB_USERNAME</span><span class="p">,</span> <span class="n">DB_PASSWORD</span><span class="p">,</span> <span class="n">GRN_NAME</span><span class="p">)</span>
+    <span class="n">device</span> <span class="o">=</span> <span class="n">torch</span><span class="o">.</span><span class="n">device</span><span class="p">(</span><span class="s2">&quot;cuda&quot;</span> <span class="k">if</span> <span class="n">torch</span><span class="o">.</span><span class="n">cuda</span><span class="o">.</span><span class="n">is_available</span><span class="p">()</span> <span class="k">else</span> <span class="s2">&quot;cpu&quot;</span><span class="p">)</span>
+    <span class="n">G</span> <span class="o">=</span> <span class="n">from_networkx</span><span class="p">(</span><span class="n">G</span><span class="p">)</span>
+
+    <span class="n">train_data</span><span class="p">,</span> <span class="n">val_data</span><span class="p">,</span> <span class="n">test_data</span> <span class="o">=</span> <span class="n">get_split</span><span class="p">(</span><span class="n">G</span><span class="p">,</span> <span class="n">NUM_VAL</span><span class="p">,</span> <span class="n">NUM_TEST</span><span class="p">,</span> <span class="n">device</span><span class="p">)</span>
+
+    <span class="n">in_channels</span> <span class="o">=</span> <span class="n">G</span><span class="o">.</span><span class="n">expression</span><span class="o">.</span><span class="n">shape</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>
+    <span class="n">model</span><span class="p">,</span> <span class="n">optimizer</span><span class="p">,</span> <span class="n">scheduler</span> <span class="o">=</span> <span class="n">get_model_components</span><span class="p">(</span>
+        <span class="n">LR</span><span class="p">,</span>
+        <span class="n">in_channels</span><span class="p">,</span>
+        <span class="n">HIDDEN_CHANNELS</span><span class="p">,</span>
+        <span class="n">OUT_CHANNELS</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">,</span>
+        <span class="n">N_LAYERS</span><span class="p">,</span>
+        <span class="n">NORMALIZE</span><span class="p">,</span>
+        <span class="n">BIAS</span><span class="p">,</span>
+        <span class="n">AGGR</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">ENABLE_TRACKING</span><span class="p">:</span>
+        <span class="n">log_results</span><span class="p">(</span><span class="n">TRACKING_URI</span><span class="p">,</span> <span class="n">EXPERIMENT_PREFIX</span><span class="p">,</span> <span class="n">GRN_NAME</span><span class="p">,</span> <span class="n">in_channels</span><span class="p">,</span> <span class="n">config</span><span class="p">)</span>
+
+    <span class="n">model</span> <span class="o">=</span> <span class="n">train_model</span><span class="p">(</span>
+        <span class="n">model</span><span class="p">,</span>
+        <span class="n">train_data</span><span class="p">,</span>
+        <span class="n">val_data</span><span class="p">,</span>
+        <span class="n">test_data</span><span class="p">,</span>
+        <span class="n">N_EPOCHS</span><span class="p">,</span>
+        <span class="n">optimizer</span><span class="p">,</span>
+        <span class="n">device</span><span class="p">,</span>
+        <span class="n">ENABLE_TRACKING</span><span class="p">,</span>
+    <span class="p">)</span>
+
+    <span class="n">output_dir</span> <span class="o">=</span> <span class="n">join_path</span><span class="p">(</span><span class="n">DATA_DIR</span><span class="p">,</span> <span class="n">OUT_DIR</span><span class="p">,</span> <span class="n">GRN_NAME</span><span class="p">,</span> <span class="s2">&quot;vae_gnn&quot;</span><span class="p">)</span>
+    <span class="n">view_embeddings</span><span class="p">(</span><span class="n">model</span><span class="p">,</span> <span class="n">train_data</span><span class="p">,</span> <span class="n">output_dir</span><span class="p">,</span> <span class="n">ENABLE_TRACKING</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="n">ENABLE_TRACKING</span><span class="p">:</span>
+        <span class="n">mlflow</span><span class="o">.</span><span class="n">end_run</span><span class="p">()</span></div>
+
+
+
+<span class="k">if</span> <span class="vm">__name__</span> <span class="o">==</span> <span class="s2">&quot;__main__&quot;</span><span class="p">:</span>
+    <span class="n">main</span><span class="p">()</span>
+</pre></div>
+
+            <div class="clearer"></div>
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar" role="navigation" aria-label="main navigation">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none" role="search">
+  <h3 id="searchlabel">Quick search</h3>
+    <div class="searchformwrapper">
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" aria-labelledby="searchlabel" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"/>
+      <input type="submit" value="Go" />
+    </form>
+    </div>
+</div>
+<script>document.getElementById('searchbox').style.display = "block"</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related" role="navigation" aria-label="related navigation">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li class="nav-item nav-item-0"><a href="../../index.html">Nextflow Graph Machine Learning  documentation</a> &#187;</li>
+          <li class="nav-item nav-item-1"><a href="../index.html" >Module code</a> &#187;</li>
+        <li class="nav-item nav-item-this"><a href="">bin.train_vae_gnn</a></li> 
+      </ul>
+    </div>
+    <div class="footer" role="contentinfo">
+    &#169; Copyright 2023, James Bristow.
+      Created using <a href="https://www.sphinx-doc.org/">Sphinx</a> 7.2.5.
+    </div>
+  </body>
+</html>
