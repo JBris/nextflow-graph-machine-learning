@@ -38,8 +38,8 @@ stages:
       size: 5415
     - path: conf/config.yaml
       hash: md5
-      md5: df461d05b2f0672a3193b546d5d21e63
-      size: 253
+      md5: 2cb8feb6f3f83e224f6518e5193b614b
+      size: 268
     - path: conf/experiment_tracking/docker.yaml
       hash: md5
       md5: f9a686d34db5162fc959ca7470695aad
@@ -73,8 +73,8 @@ stages:
       size: 4584
     - path: conf/config.yaml
       hash: md5
-      md5: df461d05b2f0672a3193b546d5d21e63
-      size: 253
+      md5: 2cb8feb6f3f83e224f6518e5193b614b
+      size: 268
     - path: conf/experiment_tracking/docker.yaml
       hash: md5
       md5: f9a686d34db5162fc959ca7470695aad

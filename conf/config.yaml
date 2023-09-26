@@ -1,5 +1,6 @@
 defaults:
   - _self_
+  - gnn: sage
   - grn: in_silico
   - db: graph
   - experiment_tracking: docker

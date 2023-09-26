@@ -1,11 +1,14 @@
 #!/usr/bin/env nextflow
 
+nextflow.enable.dsl=2
+
 // ##################################################################
 // Imports
 // ##################################################################
 
-include { dvcRepro as dvc } from './modules/mlops.nf'
 include { toDb } from './modules/db.nf'
+include { trainSAGE } from './modules/gnn.nf'
+include { dvcRepro as dvc } from './modules/mlops.nf'
 
 // ##################################################################
 // Parameters
@@ -21,5 +24,10 @@ params.featureMatrix = "expression_data.csv"
 
 workflow {
     processedDir = dvc(params.grn, projectDir)
-    db_res = toDb(params.grn, projectDir, processedDir, params.featureMatrix, params.edgeList)
+    (db_log, grn_db) = toDb(params.grn, projectDir, processedDir, params.featureMatrix, params.edgeList)
+    gnn_res = trainSAGE(grn_db)
+}
+
+workflow.onComplete {
+    log.info ( workflow.success ? "Training completed successfully." : "Something went wrong" )
 }
