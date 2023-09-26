@@ -8,3 +8,4 @@ Nextflow Graph Machine Learning Pipelines
    eda.rst
    process.rst
    to_db.rst
+   train_gnn.rst
