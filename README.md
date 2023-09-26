@@ -34,6 +34,10 @@ The pipeline is composed of the following steps:
 4. GNN training: Train a GNN using SAGE convolutional layers.
 5. GNN training: Train a variational autoencoder GNN, and save the neural embeddings.
 
+[Run nextflow.sh to execute the full pipeline.](scripts/nextflow.sh)
+
+[Run clean_nf.sh to clean up the output and logging files from the Nextflow run.](scripts/clean_nf.sh)
+
 # Python Environment
 
 [Python dependencies are specified in this requirements.txt file.](services/python/requirements.txt). 
