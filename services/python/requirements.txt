@@ -47,7 +47,7 @@ dvc==3.19.0
 dvc-data==2.16.1
 dvc-http==2.30.2
 dvc-objects==1.0.1
-dvc-render==0.5.3
+dvc-render==1.0.0
 dvc-studio-client==0.15.0
 dvc-task==0.3.0
 entrypoints==0.4
