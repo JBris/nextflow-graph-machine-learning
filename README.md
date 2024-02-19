@@ -1,6 +1,7 @@
 # Nextflow Graph Machine Learning
 
 [![Validate Pipeline](https://github.com/JBris/nextflow-graph-machine-learning/actions/workflows/validation.yml/badge.svg)](https://github.com/JBris/nextflow-graph-machine-learning/actions/workflows/validation.yml) [![Generate Documentation](https://github.com/JBris/nextflow-graph-machine-learning/actions/workflows/docs.yml/badge.svg)](https://github.com/JBris/nextflow-graph-machine-learning/actions/workflows/docs.yml) [![pages-build-deployment](https://github.com/JBris/nextflow-graph-machine-learning/actions/workflows/pages/pages-build-deployment/badge.svg)](https://github.com/JBris/nextflow-graph-machine-learning/actions/workflows/pages/pages-build-deployment)
+[![CodeQL](https://github.com/JBris/nextflow-graph-machine-learning/actions/workflows/github-code-scanning/codeql/badge.svg?branch=main)](https://github.com/JBris/nextflow-graph-machine-learning/actions/workflows/github-code-scanning/codeql)
 
 Website: [Nextflow Graph Machine Learning](https://jbris.github.io/nextflow-graph-machine-learning/)
 
