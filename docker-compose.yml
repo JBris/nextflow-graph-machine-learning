@@ -164,7 +164,16 @@ services:
       - ${METABASE_PORT}:3000
     volumes:
       - metabase-data:/metabase-data
-      
+
+  redis:
+    image: redis:${REDIS_TAG}
+    container_name: ${PROJECT_NAME}-redis
+    hostname: redis
+    restart: always
+    stop_grace_period: 10s
+    ports:
+      - ${REDIS_PORT}:6379
+
 networks:
   default:
     name: $PROJECT_NAME
