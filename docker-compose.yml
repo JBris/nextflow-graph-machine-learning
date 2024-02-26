@@ -221,3 +221,4 @@ volumes:
   arangodb-app-data: {}
   cloudbeaver-data: {}
   metabase-data: {}
+  elasticsearch-data: {}
